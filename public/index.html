@@ -13,6 +13,45 @@
     .animate-pulse {
       animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
     }
+    .loading {
+      display: inline-block;
+      position: relative;
+      width: 80px;
+      height: 20px;
+    }
+    .loading div {
+      position: absolute;
+      top: 8px;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #e53e3e;
+      animation-timing-function: cubic-bezier(0, 1, 1, 0);
+    }
+    .loading div:nth-child(1) {
+      left: 8px;
+      animation: loading1 0.6s infinite;
+    }
+    .loading div:nth-child(2) {
+      left: 32px;
+      animation: loading2 0.6s infinite;
+    }
+    .loading div:nth-child(3) {
+      left: 56px;
+      animation: loading3 0.6s infinite;
+    }
+    @keyframes loading1 {
+      0% { transform: scale(0); }
+      100% { transform: scale(1); }
+    }
+    @keyframes loading2 {
+      0% { transform: translate(-16px, 0) scale(0); }
+      100% { transform: translate(0, 0) scale(1); }
+    }
+    @keyframes loading3 {
+      0% { transform: scale(0); }
+      100% { transform: scale(1); }
+    }
   </style>
 </head>
 <body class="bg-gray-100 min-h-screen">
@@ -21,8 +60,7 @@
     <div class="flex justify-center mb-6 mt-4">
       <div class="bg-red-600 p-3 rounded-full">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-white" viewBox="0 0 20 20" fill="currentColor">
-          <path fill-rule="evenodd" d="M10 3a1 1 0 01.707.293l7 7a1 1 0 01-1.414 1.414L10 5.414 3.707 11.707a1 1 0 01-1.414-1.414l7-7A1 1 0 0110 3z" clip-rule="evenodd" />
-          <path fill-rule="evenodd" d="M10 17a7 7 0 100-14 7 7 0 000 14zm0-2a5 5 0 100-10 5 5 0 000 10z" clip-rule="evenodd" />
+          <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z" />
         </svg>
       </div>
     </div>
@@ -35,22 +73,34 @@
         <!-- Form inputs -->
         <div class="space-y-4">
           <div>
-            <label for="packaging-code" class="block text-sm font-medium text-gray-700 mb-1">Packaging Code</label>
-            <input type="text" id="packaging-code" placeholder="Enter code (e.g. 6H6TJCN)" 
+            <label for="coca-cola-link" class="block text-sm font-medium text-gray-700 mb-1">Coca-Cola Link</label>
+            <input type="text" id="coca-cola-link" placeholder="https://ayo.coca-cola.co.id/s/qlDl5Bch8G" 
                   class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500">
+            <p class="text-xs text-gray-500 mt-1">Paste your Coca-Cola link here</p>
           </div>
           
           <div>
-            <label for="authorization" class="block text-sm font-medium text-gray-700 mb-1">Authorization Token</label>
-            <textarea id="authorization" rows="3" placeholder="Paste your Bearer token here"
-                     class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500 text-xs"></textarea>
-            <p class="text-xs text-gray-500 mt-1">Get this from browser's Network tab during a manual claim</p>
+            <label for="packaging-code" class="block text-sm font-medium text-gray-700 mb-1">Packaging Code</label>
+            <input type="text" id="packaging-code" placeholder="Enter code (e.g. 6H6TJCN)" 
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500">
           </div>
           
           <!-- Start button -->
           <button id="start-button" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded transition-colors duration-300">
             Start Claim
           </button>
+        </div>
+      </div>
+      
+      <!-- Token extraction status -->
+      <div id="token-status" class="hidden px-6 pb-2">
+        <div class="p-2 rounded bg-blue-50 text-blue-800 flex items-center">
+          <div class="loading mr-2">
+            <div></div>
+            <div></div>
+            <div></div>
+          </div>
+          <span>Extracting authorization token...</span>
         </div>
       </div>
       

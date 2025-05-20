@@ -1,7 +1,8 @@
 const express = require('express');
 const path = require('path');
-const fetch = require('node-fetch');
 const cors = require('cors');
+const puppeteer = require('puppeteer');
+const fetch = require('node-fetch');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -16,10 +17,117 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// API endpoint to claim code
+// Extract authorization token from Coca-Cola link
+app.post('/api/extract-token', async (req, res) => {
+  try {
+    const { cocaColaLink } = req.body;
+    
+    if (!cocaColaLink || !cocaColaLink.includes('ayo.coca-cola.co.id')) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Invalid link', 
+        message: 'Please provide a valid Coca-Cola link' 
+      });
+    }
+    
+    console.log(`Starting token extraction for link: ${cocaColaLink}`);
+    
+    // Launch Puppeteer
+    const browser = await puppeteer.launch({
+      headless: "new",
+      args: ['--no-sandbox', '--disable-setuid-sandbox']
+    });
+    
+    try {
+      const page = await browser.newPage();
+      
+      // Enable request interception to capture network requests
+      await page.setRequestInterception(true);
+      
+      let authToken = null;
+      
+      // Listen for requests and capture the authorization token
+      page.on('request', request => {
+        const url = request.url();
+        const headers = request.headers();
+        
+        // Look for the userCoupons request
+        if (url.includes('userCoupons')) {
+          console.log('Found userCoupons request');
+          if (headers.authorization) {
+            authToken = headers.authorization;
+            console.log('Extracted authorization token');
+          }
+        }
+        request.continue();
+      });
+      
+      // Set a timeout to ensure we don't hang indefinitely
+      const timeout = setTimeout(async () => {
+        if (!authToken) {
+          await browser.close();
+          res.status(408).json({ 
+            success: false, 
+            error: 'Timeout', 
+            message: 'Timed out while trying to extract token' 
+          });
+        }
+      }, 30000);
+      
+      // Navigate to the page
+      await page.goto(cocaColaLink, { waitUntil: 'networkidle2', timeout: 25000 });
+      
+      // Wait a bit for all requests to finish
+      await new Promise(resolve => setTimeout(resolve, 5000));
+      
+      clearTimeout(timeout);
+      
+      if (!authToken) {
+        // If we couldn't find the token in the initial load, try interacting with the page
+        await page.evaluate(() => {
+          // Click on elements that might trigger API calls
+          document.querySelectorAll('button').forEach(btn => btn.click());
+        });
+        
+        // Wait a bit more for potential requests
+        await new Promise(resolve => setTimeout(resolve, 3000));
+      }
+      
+      await browser.close();
+      
+      if (!authToken) {
+        return res.status(404).json({ 
+          success: false, 
+          error: 'Token not found', 
+          message: 'Could not extract authorization token from the link' 
+        });
+      }
+      
+      // Return the token
+      return res.json({ 
+        success: true, 
+        token: authToken 
+      });
+      
+    } catch (error) {
+      await browser.close();
+      throw error;
+    }
+    
+  } catch (error) {
+    console.error('Error extracting token:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Server error', 
+      message: error.message 
+    });
+  }
+});
+
+// Claim code endpoint
 app.post('/api/claim', async (req, res) => {
   try {
-    const { packagingCode, authorization, maxAttempts = 100 } = req.body;
+    const { packagingCode, authorization } = req.body;
     
     if (!packagingCode || !authorization) {
       return res.status(400).json({ error: 'Missing required parameters' });
@@ -46,6 +154,7 @@ app.post('/api/claim', async (req, res) => {
     };
 
     // Try to claim with up to maxAttempts
+    const maxAttempts = 100;
     let attemptCount = 0;
     let success = false;
     let finalResult = null;
@@ -75,7 +184,7 @@ app.post('/api/claim', async (req, res) => {
             return res.json({
               success: false,
               status: 'LIMIT_REACHED',
-              message: 'Coupons sudah limit, 1 akun hanya 3x redeem/hari',
+              message: 'Coupons sudah limit, 1 akun hanya 3x redeem saja',
               attempts: attemptCount,
               result
             });

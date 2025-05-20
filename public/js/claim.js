@@ -70,6 +70,39 @@ function showToast(message, type = 'info') {
   }, 5000);
 }
 
+// Function to extract token from Coca-Cola link
+async function extractToken(cocaColaLink) {
+  try {
+    const tokenStatus = document.getElementById('token-status');
+    tokenStatus.classList.remove('hidden');
+    
+    const response = await fetch('/api/extract-token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ cocaColaLink })
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || `Failed to extract token: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    tokenStatus.classList.add('hidden');
+    
+    if (!data.success) {
+      throw new Error(data.message || 'Failed to extract authorization token');
+    }
+    
+    return data.token;
+  } catch (error) {
+    document.getElementById('token-status').classList.add('hidden');
+    throw error;
+  }
+}
+
 // Function to claim code via API
 async function claimCode(packagingCode, authorization) {
   try {
@@ -114,24 +147,29 @@ async function claimCode(packagingCode, authorization) {
       // Success case
       logEntry.className = 'p-2 mb-2 bg-green-100 text-green-800 rounded';
       logEntry.innerHTML = `<strong>Success on attempt ${result.attempts}:</strong><br> ${JSON.stringify(result.result, null, 2)}`;
+      showToast('Code successfully claimed!', 'success');
     } else {
       // Error case
       switch (result.status) {
         case 'LIMIT_REACHED':
           logEntry.className = 'p-2 mb-2 bg-red-100 text-red-800 rounded font-bold';
           logEntry.textContent = `⚠️ ${result.message}`;
+          showToast(result.message, 'error');
           break;
         case 'INVALID_CODE':
           logEntry.className = 'p-2 mb-2 bg-red-100 text-red-800 rounded font-bold';
           logEntry.textContent = `❌ ${result.message}`;
+          showToast(result.message, 'error');
           break;
         case 'MAX_ATTEMPTS':
           logEntry.className = 'p-2 mb-2 bg-yellow-100 text-yellow-800 rounded';
           logEntry.textContent = `⚠️ ${result.message}`;
+          showToast(result.message, 'error');
           break;
         default:
           logEntry.className = 'p-2 mb-2 bg-red-100 text-red-800 rounded';
           logEntry.innerHTML = `<strong>Error:</strong><br> ${JSON.stringify(result, null, 2)}`;
+          showToast('Error processing request', 'error');
       }
     }
     
@@ -168,25 +206,50 @@ async function claimCode(packagingCode, authorization) {
 document.addEventListener('DOMContentLoaded', function() {
   const startButton = document.getElementById('start-button');
   
-  // Existing click event for the start button
-  startButton.addEventListener('click', function() {
-    const packagingCode = document.getElementById('packaging-code').value;
-    const authorization = document.getElementById('authorization').value;
-    
-    if (!packagingCode || !authorization) {
-      // Replace alert with toast notification
-      showToast('Please fill in both Packaging Code and Authorization Token', 'error');
-      return;
+  // Click event for the start button
+  startButton.addEventListener('click', async function() {
+    try {
+      const cocaColaLink = document.getElementById('coca-cola-link').value;
+      const packagingCode = document.getElementById('packaging-code').value;
+      
+      if (!cocaColaLink || !packagingCode) {
+        showToast('Please fill in both Coca-Cola Link and Packaging Code', 'error');
+        return;
+      }
+
+      // Validate that the link is a Coca-Cola link
+      if (!cocaColaLink.includes('ayo.coca-cola.co.id')) {
+        showToast('Please enter a valid Coca-Cola link', 'error');
+        return;
+      }
+      
+      // Update button state
+      this.disabled = true;
+      this.textContent = 'Processing...';
+      
+      // Reset progress
+      document.getElementById('progress-bar').style.width = '0%';
+      document.getElementById('attempt-counter').textContent = 'Extracting token...';
+      
+      // First extract the authorization token from the link
+      showToast('Extracting authorization token from link...', 'info');
+      const token = await extractToken(cocaColaLink);
+      
+      if (!token) {
+        throw new Error('Failed to extract authorization token');
+      }
+      
+      // Then start the claim process with the extracted token
+      showToast('Token extracted successfully, starting claim process...', 'success');
+      await claimCode(packagingCode, token);
+      
+    } catch (error) {
+      console.error('Process error:', error);
+      showToast(`Error: ${error.message}`, 'error');
+      
+      // Re-enable the start button
+      this.disabled = false;
+      this.textContent = 'Start Claim';
     }
-    
-    // Update button state
-    this.disabled = true;
-    this.textContent = 'Processing...';
-    
-    // Reset progress
-    document.getElementById('progress-bar').style.width = '0%';
-    
-    // Start the claim process
-    claimCode(packagingCode, authorization);
   });
 });
