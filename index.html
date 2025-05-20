@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Coca-Cola Code Claimer</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    .animate-pulse {
+      animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+  </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+  <div class="container mx-auto p-4 max-w-md">
+    <!-- Header with logo -->
+    <div class="flex justify-center mb-6 mt-4">
+      <div class="bg-red-600 p-3 rounded-full">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-white" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M10 3a1 1 0 01.707.293l7 7a1 1 0 01-1.414 1.414L10 5.414 3.707 11.707a1 1 0 01-1.414-1.414l7-7A1 1 0 0110 3z" clip-rule="evenodd" />
+          <path fill-rule="evenodd" d="M10 17a7 7 0 100-14 7 7 0 000 14zm0-2a5 5 0 100-10 5 5 0 000 10z" clip-rule="evenodd" />
+        </svg>
+      </div>
+    </div>
+    
+    <!-- Main card -->
+    <div class="bg-white rounded-lg shadow-lg overflow-hidden">
+      <div class="p-6">
+        <h1 class="text-xl font-bold text-center text-red-600 mb-4">Coca-Cola Code Claimer</h1>
+        
+        <!-- Form inputs -->
+        <div class="space-y-4">
+          <div>
+            <label for="packaging-code" class="block text-sm font-medium text-gray-700 mb-1">Packaging Code</label>
+            <input type="text" id="packaging-code" placeholder="Enter code (e.g. 6H6TJCN)" 
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500">
+          </div>
+          
+          <div>
+            <label for="authorization" class="block text-sm font-medium text-gray-700 mb-1">Authorization Token</label>
+            <textarea id="authorization" rows="3" placeholder="Paste your Bearer token here"
+                     class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500 text-xs"></textarea>
+            <p class="text-xs text-gray-500 mt-1">Get this from browser's Network tab during a manual claim</p>
+          </div>
+          
+          <!-- Start button -->
+          <button id="start-button" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded transition-colors duration-300">
+            Start Claim
+          </button>
+        </div>
+      </div>
+      
+      <!-- Progress section -->
+      <div class="px-6 pb-4">
+        <div class="relative pt-1">
+          <div class="flex mb-2 items-center justify-between">
+            <div>
+              <span id="attempt-counter" class="text-xs font-semibold inline-block text-red-600">
+                Ready to start
+              </span>
+            </div>
+          </div>
+          <div class="overflow-hidden h-2 mb-4 text-xs flex rounded bg-red-100">
+            <div id="progress-bar" class="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-red-600 transition-all duration-300" style="width: 0%"></div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Results section -->
+      <div class="border-t border-gray-200 px-6 py-4">
+        <h2 class="text-sm font-medium text-gray-700 mb-3">Results Log</h2>
+        <div id="result-display" class="bg-gray-50 p-3 rounded-md max-h-60 overflow-y-auto text-sm">
+          <div class="text-gray-400 text-center">Waiting to start...</div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Footer -->
+    <div class="mt-4 text-center text-xs text-gray-500">
+      <p>Made with ❤️ for Coca-Cola collectors</p>
+    </div>
+  </div>
+  
+  <script src="claim.js"></script>
+</body>
+</html>
