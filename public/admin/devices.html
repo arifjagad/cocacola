@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Devices - Coca-Cola Code Claimer Admin</title>
+  <title>Device Management - Coca-Cola Code Claimer Admin</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
@@ -55,6 +55,7 @@
             <tr>
               <th class="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Device ID</th>
               <th class="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">IP Address</th>
+              <th class="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Device Info</th>
               <th class="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Subscription</th>
               <th class="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
               <th class="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">First Seen</th>
@@ -64,7 +65,7 @@
           </thead>
           <tbody class="bg-white divide-y divide-gray-200" id="devices-table-body">
             <tr>
-              <td colspan="7" class="px-6 py-4 text-center text-sm text-gray-500">Loading devices...</td>
+              <td colspan="8" class="px-6 py-4 text-center text-sm text-gray-500">Loading devices...</td>
             </tr>
           </tbody>
         </table>
@@ -87,11 +88,10 @@
     </div>
   </div>
   
-  <script>
-    // Get admin token from URL
-    const pathParts = window.location.pathname.split('/');
-    const adminToken = pathParts[pathParts.length - 1]; // Ambil token dari URL path
-    
+  <!-- Device Details Modal -->
+  <div id="device-details-modal" class="fixed inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center hidden">
+    <div class="bg-white rounded-lg max-w-2xl w-full max-h-[80vh] overflow-y-auto p-6">
+      <div class="
     let currentPage = 1;
     let pageSize = 10;
     let totalDevices = 0;
