@@ -2,7 +2,7 @@
 
 /**
  * Protection utilities for Coca-Cola Code Claimer
- * Allows right-click on mobile devices but disables it on desktop
+ * Allows right-click on all devices
  */
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -10,7 +10,7 @@ document.addEventListener('DOMContentLoaded', function() {
   const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
   
   if (!isMobileDevice) {
-    // Hanya terapkan proteksi lebih lanjut pada perangkat desktop
+    // Untuk desktop, konfigurasikan proteksi tetapi izinkan klik kanan
     
     // Disable selection for desktop
     document.body.style.userSelect = 'none';
@@ -47,11 +47,14 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 });
 
-// Mencegah klik kanan
+// KODE YANG DIHAPUS: Mencegah klik kanan
+// Kita menghapus event listener contextmenu berikut untuk mengizinkan klik kanan
+/* 
 document.addEventListener('contextmenu', event => {
   event.preventDefault();
   alert('Klik kanan dinonaktifkan pada halaman ini.');
 }, false);
+*/
 
 // Mencegah kombinasi tombol umum untuk inspect element dan view source
 document.addEventListener('keydown', (e) => {

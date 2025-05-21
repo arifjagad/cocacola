@@ -397,6 +397,9 @@ document.addEventListener('DOMContentLoaded', function() {
   const startButton = document.getElementById('start-button');
   const linkInput = document.getElementById('coca-cola-link');
   
+  // Always ensure right-clicking is enabled
+  document.body.oncontextmenu = function() { return true; };
+  
   // Click event for the start button
   startButton.addEventListener('click', async function() {
     try {
