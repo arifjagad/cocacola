@@ -732,35 +732,6 @@ app.get('/api/admin/devices', async (req, res) => {
   }
 });
 
-// Get single device details
-app.get('/api/admin/devices/:id', async (req, res) => {
-  try {
-    const adminToken = req.query.adminToken || (req.headers.authorization && req.headers.authorization.split(' ')[1]);
-    
-    if (!adminToken || adminToken !== process.env.ADMIN_TOKEN) {
-      return res.status(401).json({ message: 'Unauthorized' });
-    }
-    
-    const { id } = req.params;
-    
-    const { data, error } = await supabase
-      .from('devices')
-      .select('*')
-      .eq('id', id)
-      .single();
-    
-    if (error) {
-      return res.status(404).json({ message: 'Device not found' });
-    }
-    
-    return res.json(data);
-    
-  } catch (error) {
-    console.error('Error fetching device details:', error);
-    res.status(500).json({ message: 'Error fetching device details' });
-  }
-});
-
 // Route untuk halaman devices management
 app.get('/admin/devices/:adminToken', (req, res) => {
   const { adminToken } = req.params;

@@ -122,32 +122,12 @@ function updateSubscriptionInfo(data) {
     expiryDate.classList.add('text-purple-700');
   }
   
-  // Update device information display
-  if (data.deviceInfo) {
-    // Perbarui element yang menampilkan device info
-    const deviceInfoEl = document.getElementById('device-info');
-    if (deviceInfoEl) {
-      let deviceText = '';
-      
-      if (data.deviceInfo.device) {
-        deviceText += data.deviceInfo.device;
-      }
-      
-      if (data.deviceInfo.os) {
-        deviceText += ` (${data.deviceInfo.os})`;
-      }
-      
-      if (data.deviceInfo.browser) {
-        deviceText += ` • ${data.deviceInfo.browser}`;
-      }
-      
-      deviceInfoEl.textContent = deviceText || 'Unknown Device';
-    }
-    
-    // Update device count if element exists
-    const deviceCountEl = document.getElementById('device-count');
-    if (deviceCountEl) {
-      deviceCountEl.textContent = `${data.deviceCount || 1} / ${data.deviceLimit || '-'} devices`;
+  // Tambahkan informasi IP address jika tersedia
+  if (data.deviceInfo && data.deviceInfo.ipAddress) {
+    // Perbarui element yang menampilkan device ID
+    const deviceIdEl = document.getElementById('device-id');
+    if (deviceIdEl) {
+      deviceIdEl.textContent = `${data.deviceInfo.deviceId} (${data.deviceInfo.ipAddress})`;
     }
   }
 }
