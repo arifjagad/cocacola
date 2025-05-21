@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Dashboard - Coca-Cola Code Claimer</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-gray-100 min-h-screen">
+  <div id="dashboard-container">
+    <div class="container mx-auto px-4 py-8">
+      <div class="flex justify-between items-center mb-8">
+        <div class="flex items-center">
+          <div class="bg-red-600 p-2 rounded-full mr-3">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-white" viewBox="0 0 20 20" fill="currentColor">
+              <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z" />
+            </svg>
+          </div>
+          <h1 class="text-2xl font-bold">Admin Dashboard</h1>
+        </div>
+        <div>
+          <a href="#" id="new-subscription-button" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition">
+            <i class="fas fa-plus mr-2"></i>New Subscription
+          </a>
+        </div>
+      </div>
+      
+      <!-- Subscriptions Table -->
+      <div class="overflow-x-auto bg-white rounded-lg shadow">
+        <table class="min-w-full divide-y divide-gray-200">
+          <thead>
+            <tr>
+              <th class="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Code</th>
+              <th class="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
+              <th class="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+              <th class="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Devices</th>
+              <th class="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Expiry Date</th>
+              <th class="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+              <th class="px-6 py-3 bg-gray-50 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+            </tr>
+          </thead>
+          <tbody class="bg-white divide-y divide-gray-200" id="subscriptions-table-body">
+            <tr>
+              <td colspan="7" class="px-6 py-4 text-center text-sm text-gray-500">Loading subscriptions...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      
+      <!-- Pagination -->
+      <div class="flex justify-between items-center mt-4">
+        <div>
+          <span class="text-sm text-gray-700">Showing <span id="subscription-range">1-10</span> of <span id="subscription-total">0</span> subscriptions</span>
+        </div>
+        <div class="flex space-x-2">
+          <button id="prev-page" class="px-3 py-1 border border-gray-300 rounded-md bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
+            Previous
+          </button>
+          <button id="next-page" class="px-3 py-1 border border-gray-300 rounded-md bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
+            Next
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Subscription Modal -->
+  <div id="subscription-modal" class="fixed inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center hidden">
+    <div class="bg-white rounded-lg max-w-md w-full p-6">
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="text-lg font-semibold" id="modal-title">Add New Subscription</h3>
+        <button id="close-modal" class="text-gray-500 hover:text-gray-700">
+          <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+          </svg>
+        </button>
+      </div>
+      
+      <form id="subscription-form">
+        <input type="hidden" id="subscription-id">
+        
+        <div class="mb-4">
+          <label for="customer-name" class="block text-sm font-medium text-gray-700 mb-1">Customer Name</label>
+          <input type="text" id="customer-name" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-red-500 focus:border-red-500" required>
+        </div>
+        
+        <div class="mb-4">
+          <label for="email" class="block text-sm font-medium text-gray-700 mb-1">Email (optional)</label>
+          <input type="email" id="email" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-red-500 focus:border-red-500">
+        </div>
+        
+        <div class="mb-4">
+          <label for="contact-info" class="block text-sm font-medium text-gray-700 mb-1">WhatsApp Number</label>
+          <input type="text" id="contact-info" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-red-500 focus:border-red-500" required>
+        </div>
+        
+        <div class="mb-4">
+          <label for="subscription-type" class="block text-sm font-medium text-gray-700 mb-1">Subscription Type</label>
+          <select id="subscription-type" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-red-500 focus:border-red-500" required>
+            <option value="Trial">Trial (1 Day)</option>
+            <option value="Premium" selected>Premium (Event Duration)</option>
+          </select>
+        </div>
+        
+        <div class="mb-4">
+          <label for="device-limit" class="block text-sm font-medium text-gray-700 mb-1">Device Limit</label>
+          <input type="number" id="device-limit" min="1" max="5" value="3" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-red-500 focus:border-red-500" required>
+        </div>
+        
+        <div class="mb-6">
+          <label for="access-code" class="block text-sm font-medium text-gray-700 mb-1">Access Code (optional)</label>
+          <div class="flex">
+            <input type="text" id="access-code" class="flex-1 px-3 py-2 border border-gray-300 rounded-l-md focus:outline-none focus:ring-red-500 focus:border-red-500">
+            <button type="button" id="generate-code" class="bg-gray-200 px-3 py-2 rounded-r-md hover:bg-gray-300 transition">Generate</button>
+          </div>
+          <p class="text-xs text-gray-500 mt-1">Leave blank to auto-generate</p>
+        </div>
+        
+        <div class="mb-4">
+          <div id="subscription-url-container" class="p-3 bg-gray-100 rounded-md hidden">
+            <label class="block text-sm font-medium text-gray-700 mb-1">Subscription URL:</label>
+            <div class="flex">
+              <input type="text" id="subscription-url" class="flex-1 px-3 py-2 border border-gray-300 rounded-l-md bg-gray-50" readonly>
+              <button type="button" id="copy-url" class="bg-blue-500 text-white px-3 py-2 rounded-r-md hover:bg-blue-600 transition">Copy</button>
+            </div>
+          </div>
+        </div>
+        
+        <div class="flex justify-end space-x-3">
+          <button type="button" id="cancel-subscription" class="px-4 py-2 border border-gray-300 rounded-md bg-white text-gray-700 hover:bg-gray-50 transition">
+            Cancel
+          </button>
+          <button type="submit" id="save-subscription" class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition">
+            Save Subscription
+          </button>
+        </div>
+      </form>
+      
+      <!-- Result Section (Hidden by Default) - Added from paste-2.txt -->
+      <div id="result-section" class="mt-6 hidden">
+        <div class="p-4 bg-green-100 rounded-md mb-4">
+          <h3 class="font-medium text-green-800 mb-2">Subscription Created Successfully!</h3>
+          <p class="text-green-700 text-sm mb-3">Please share the following unique URL with your customer:</p>
+          
+          <div class="flex">
+            <input type="text" id="result-subscription-url" class="flex-1 px-3 py-2 border border-gray-300 rounded-l-md bg-gray-50" readonly>
+            <button type="button" id="result-copy-url" class="bg-blue-500 text-white px-3 py-2 rounded-r-md hover:bg-blue-600 transition">Copy</button>
+          </div>
+        </div>
+        
+        <div class="flex space-x-3">
+          <button type="button" id="create-another" class="flex-1 bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300 transition">
+            Create Another
+          </button>
+          <a href="#" id="view-subscription-link" class="flex-1 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition text-center" target="_blank">
+            View Subscription
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Get admin token from URL
+    const pathParts = window.location.pathname.split('/');
+    const adminToken = pathParts[pathParts.length - 1];
+    
+    let currentPage = 1;
+    let pageSize = 10;
+    let totalSubscriptions = 0;
+    let editMode = false;
+    
+    // Document loaded event
+    document.addEventListener('DOMContentLoaded', function() {
+      // Load subscriptions immediately
+      loadSubscriptions();
+      
+      // Set up event listeners
+      document.getElementById('new-subscription-button').addEventListener('click', openNewSubscriptionModal);
+      document.getElementById('close-modal').addEventListener('click', closeModal);
+      document.getElementById('cancel-subscription').addEventListener('click', closeModal);
+      document.getElementById('generate-code').addEventListener('click', generateRandomCode);
+      document.getElementById('subscription-form').addEventListener('submit', handleSubscriptionSubmit);
+      document.getElementById('prev-page').addEventListener('click', () => changePage(-1));
+      document.getElementById('next-page').addEventListener('click', () => changePage(1));
+      
+      // Copy URL buttons
+      document.getElementById('copy-url').addEventListener('click', copySubscriptionUrl);
+      document.getElementById('result-copy-url').addEventListener('click', copyResultSubscriptionUrl);
+      
+      // Create another button
+      document.getElementById('create-another').addEventListener('click', resetForm);
+      
+      // Set the default device limit based on the subscription type
+      document.getElementById('subscription-type').addEventListener('change', updateDeviceLimit);
+    });
+    
+    function updateDeviceLimit() {
+      const subscriptionType = document.getElementById('subscription-type').value;
+      const deviceLimitInput = document.getElementById('device-limit');
+      
+      // Set defaults based on subscription type
+      if (subscriptionType === 'Trial') {
+        deviceLimitInput.value = '1'; // Trial gets 1 device
+      } else if (subscriptionType === 'Premium') {
+        deviceLimitInput.value = '3'; // Premium gets 3 devices
+      }
+    }
+    
+    // Load subscriptions
+    async function loadSubscriptions() {
+      try {
+        const response = await fetch(`/api/admin/subscriptions?adminToken=${adminToken}&page=${currentPage}&pageSize=${pageSize}`);
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        const subscriptions = data.subscriptions;
+        totalSubscriptions = data.total;
+        
+        renderSubscriptionsTable(subscriptions);
+        updatePagination();
+      } catch (error) {
+        console.error('Error loading subscriptions:', error);
+        document.getElementById('subscriptions-table-body').innerHTML = `
+          <tr>
+            <td colspan="7" class="px-6 py-4 text-center text-sm text-red-500">Error loading subscriptions: ${error.message}</td>
+          </tr>
+        `;
+      }
+    }
+    
+    // Render subscriptions table
+    function renderSubscriptionsTable(subscriptions) {
+      const tableBody = document.getElementById('subscriptions-table-body');
+      
+      if (!subscriptions || subscriptions.length === 0) {
+        tableBody.innerHTML = `
+          <tr>
+            <td colspan="7" class="px-6 py-4 text-center text-sm text-gray-500">No subscriptions found</td>
+          </tr>
+        `;
+        return;
+      }
+      
+      tableBody.innerHTML = subscriptions.map(subscription => {
+        const expiryDate = new Date(subscription.expiry_date);
+        const now = new Date();
+        const isExpired = expiryDate < now;
+        const statusClass = isExpired ? 'text-red-600 bg-red-100' : 'text-green-600 bg-green-100';
+        const statusText = isExpired ? 'Expired' : 'Active';
+        
+        return `
+          <tr>
+            <td class="px-6 py-4 whitespace-nowrap">
+              <div class="flex items-center">
+                <div class="font-medium text-gray-900">${subscription.access_code}</div>
+              </div>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap">
+              <div class="text-sm text-gray-900">${subscription.customer_name || 'N/A'}</div>
+              <div class="text-sm text-gray-500">${subscription.contact_info || 'No contact'}</div>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap">
+              <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                ${subscription.type}
+              </span>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+              ${subscription.device_count || 0} / ${subscription.device_limit}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+              ${formatDate(subscription.expiry_date)}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap">
+              <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${statusClass}">
+                ${statusText}
+              </span>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+              <button onclick="editSubscription('${subscription.id}')" class="text-blue-600 hover:text-blue-900 mr-3">Edit</button>
+              <a href="/claim?code=${subscription.access_code}" target="_blank" class="text-green-600 hover:text-green-900 mr-3">View</a>
+              <button onclick="deleteSubscription('${subscription.id}')" class="text-red-600 hover:text-red-900">Delete</button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+    
+    // Format date
+    function formatDate(dateString) {
+      const options = { year: 'numeric', month: 'short', day: 'numeric' };
+      return new Date(dateString).toLocaleDateString('id-ID', options);
+    }
+    
+    // Update pagination
+    function updatePagination() {
+      const start = (currentPage - 1) * pageSize + 1;
+      const end = Math.min(currentPage * pageSize, totalSubscriptions);
+      
+      document.getElementById('subscription-range').textContent = `${start}-${end}`;
+      document.getElementById('subscription-total').textContent = totalSubscriptions;
+      
+      // Update buttons state
+      document.getElementById('prev-page').disabled = currentPage === 1;
+      document.getElementById('next-page').disabled = end >= totalSubscriptions;
+    }
+    
+    // Change page
+    function changePage(delta) {
+      const newPage = currentPage + delta;
+      
+      if (newPage < 1) return;
+      
+      const maxPages = Math.ceil(totalSubscriptions / pageSize);
+      if (newPage > maxPages) return;
+      
+      currentPage = newPage;
+      loadSubscriptions();
+    }
+    
+    // Open new subscription modal
+    function openNewSubscriptionModal() {
+      editMode = false;
+      
+      // Clear form
+      document.getElementById('subscription-id').value = '';
+      document.getElementById('customer-name').value = '';
+      document.getElementById('email').value = '';
+      document.getElementById('contact-info').value = '';
+      document.getElementById('subscription-type').value = 'Premium';
+      document.getElementById('device-limit').value = '3';
+      document.getElementById('access-code').value = '';
+      
+      // Hide URL container
+      document.getElementById('subscription-url-container').classList.add('hidden');
+      document.getElementById('result-section').classList.add('hidden');
+      document.getElementById('subscription-form').classList.remove('hidden');
+      
+      // Update modal title
+      document.getElementById('modal-title').textContent = 'Add New Subscription';
+      
+      // Show modal
+      document.getElementById('subscription-modal').classList.remove('hidden');
+    }
+    
+    // Close modal
+    function closeModal() {
+      document.getElementById('subscription-modal').classList.add('hidden');
+    }
+    
+    // Generate random access code
+    function generateRandomCode() {
+      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+      let result = '';
+      for (let i = 0; i < 8; i++) {
+        result += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      document.getElementById('access-code').value = result;
+    }
+    
+    // Handle subscription form submit
+    async function handleSubscriptionSubmit(e) {
+      e.preventDefault();
+      
+      const subscriptionId = document.getElementById('subscription-id').value;
+      const isEdit = !!subscriptionId;
+      
+      const subscriptionData = {
+        customer_name: document.getElementById('customer-name').value,
+        email: document.getElementById('email').value,
+        contact_info: document.getElementById('contact-info').value,
+        type: document.getElementById('subscription-type').value,
+        device_limit: parseInt(document.getElementById('device-limit').value),
+        access_code: document.getElementById('access-code').value,
+        update_expiry: true // Add this flag to ensure expiry is updated when type changes
+      };
+      
+      // Disable the button during submission
+      const submitButton = document.getElementById('save-subscription');
+      submitButton.disabled = true;
+      submitButton.textContent = isEdit ? 'Updating...' : 'Creating...';
+      
+      try {
+        const url = isEdit 
+          ? `/api/admin/subscriptions/${subscriptionId}?adminToken=${adminToken}` 
+          : `/api/admin/subscriptions?adminToken=${adminToken}`;
+        
+        const method = isEdit ? 'PUT' : 'POST';
+        
+        const response = await fetch(url, {
+          method: method,
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(subscriptionData)
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || 'Failed to save subscription');
+        }
+        
+        const savedSubscription = await response.json();
+        
+        // Log expiry date for debugging
+        console.log("Subscription " + (isEdit ? "updated" : "created") + " with expiry date:", 
+          new Date(savedSubscription.expiry_date).toLocaleString());
+        
+        // For new subscriptions, show the success result
+        if (!isEdit) {
+          const subscriptionUrl = `${window.location.origin}/claim?code=${savedSubscription.access_code}`;
+          document.getElementById('result-subscription-url').value = subscriptionUrl;
+          document.getElementById('subscription-form').classList.add('hidden');
+          document.getElementById('result-section').classList.remove('hidden');
+          document.getElementById('view-subscription-link').href = subscriptionUrl;
+        } else {
+          // Reload subscriptions and close modal
+          loadSubscriptions();
+          closeModal();
+        }
+      } catch (error) {
+        console.error('Error saving subscription:', error);
+        alert('Error: ' + error.message);
+        
+        // Re-enable the button
+        submitButton.disabled = false;
+        submitButton.textContent = isEdit ? 'Update Subscription' : 'Save Subscription';
+      }
+    }
+    
+    // Copy subscription URL
+    function copySubscriptionUrl() {
+      const urlInput = document.getElementById('subscription-url');
+      urlInput.select();
+      document.execCommand('copy');
+      
+      // Show feedback
+      const copyButton = document.getElementById('copy-url');
+      const originalText = copyButton.textContent;
+      copyButton.textContent = 'Copied!';
+      copyButton.classList.remove('bg-blue-500', 'hover:bg-blue-600');
+      copyButton.classList.add('bg-green-500', 'hover:bg-green-600');
+      
+      setTimeout(() => {
+        copyButton.textContent = originalText;
+        copyButton.classList.add('bg-blue-500', 'hover:bg-blue-600');
+        copyButton.classList.remove('bg-green-500', 'hover:bg-green-600');
+      }, 2000);
+    }
+    
+    // Copy result subscription URL
+    function copyResultSubscriptionUrl() {
+      const urlInput = document.getElementById('result-subscription-url');
+      urlInput.select();
+      document.execCommand('copy');
+      
+      // Show feedback
+      const copyButton = document.getElementById('result-copy-url');
+      const originalText = copyButton.textContent;
+      copyButton.textContent = 'Copied!';
+      copyButton.classList.remove('bg-blue-500', 'hover:bg-blue-600');
+      copyButton.classList.add('bg-green-500', 'hover:bg-green-600');
+      
+      setTimeout(() => {
+        copyButton.textContent = originalText;
+        copyButton.classList.add('bg-blue-500', 'hover:bg-blue-600');
+        copyButton.classList.remove('bg-green-500', 'hover:bg-green-600');
+      }, 2000);
+    }
+    
+    // Reset form for creating another subscription
+    function resetForm() {
+      // Show the form again
+      document.getElementById('subscription-form').classList.remove('hidden');
+      document.getElementById('result-section').classList.add('hidden');
+      
+      // Clear form fields
+      document.getElementById('customer-name').value = '';
+      document.getElementById('email').value = '';
+      document.getElementById('contact-info').value = '';
+      document.getElementById('subscription-type').value = 'Premium';
+      document.getElementById('device-limit').value = '3';
+      document.getElementById('access-code').value = '';
+      
+      // Reset the button
+      const submitButton = document.getElementById('save-subscription');
+      submitButton.disabled = false;
+      submitButton.textContent = 'Save Subscription';
+    }
+    
+    // Edit subscription
+    window.editSubscription = async function(id) {
+      try {
+        editMode = true;
+        
+        const response = await fetch(`/api/admin/subscriptions/${id}?adminToken=${adminToken}`);
+        
+        if (!response.ok) {
+          throw new Error('Failed to load subscription details');
+        }
+        
+        const subscription = await response.json();
+        
+        // Fill form
+        document.getElementById('subscription-id').value = subscription.id;
+        document.getElementById('customer-name').value = subscription.customer_name || '';
+        document.getElementById('email').value = subscription.email || '';
+        document.getElementById('contact-info').value = subscription.contact_info || '';
+        document.getElementById('subscription-type').value = subscription.type;
+        document.getElementById('device-limit').value = subscription.device_limit;
+        document.getElementById('access-code').value = subscription.access_code;
+        
+        // Hide URL container and result section for edits
+        document.getElementById('subscription-url-container').classList.add('hidden');
+        document.getElementById('result-section').classList.add('hidden');
+        document.getElementById('subscription-form').classList.remove('hidden');
+        
+        // Update modal title
+        document.getElementById('modal-title').textContent = 'Edit Subscription';
+        
+        // Show modal
+        document.getElementById('subscription-modal').classList.remove('hidden');
+      } catch (error) {
+        console.error('Error loading subscription details:', error);
+        alert('Error: ' + error.message);
+      }
+    };
+    
+    // Delete subscription
+    window.deleteSubscription = async function(id) {
+      if (!confirm('Are you sure you want to delete this subscription? This action cannot be undone.')) {
+        return;
+      }
+      
+      try {
+        const response = await fetch(`/api/admin/subscriptions/${id}?adminToken=${adminToken}`, {
+          method: 'DELETE'
+        });
+        
+        if (!response.ok) {
+          throw new Error('Failed to delete subscription');
+        }
+        
+        // Reload subscriptions
+        loadSubscriptions();
+      } catch (error) {
+        console.error('Error deleting subscription:', error);
+        alert('Error: ' + error.message);
+      }
+    };
+  </script>
+</body>
+</html>

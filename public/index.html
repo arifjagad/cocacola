@@ -1,163 +1,328 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="id">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Coca-Cola Code Claimer</title>
+  <!-- Meta tag untuk mencegah caching -->
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <title>Coca-Cola Code Claimer - Bantu Klaim Kode Dengan Mudah</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Tambahkan file protect.js di awal untuk melindungi halaman -->
+  <script src="/js/protect.js"></script>
   <style>
+    /* CSS untuk mencegah seleksi teks */
+    body {
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+      user-select: none;
+    }
+    
+    /* CSS khusus untuk perbaikan tampilan mobile */
+    @media (max-width: 768px) {
+      .mobile-container {
+        padding-left: 1rem;
+        padding-right: 1rem;
+      }
+      
+      .mobile-py {
+        padding-top: 2.5rem;
+        padding-bottom: 2.5rem;
+      }
+      
+      .header-title {
+        font-size: 1.5rem;
+      }
+      
+      .mobile-stack {
+        flex-direction: column;
+        align-items: center;
+      }
+      
+      .mobile-stack > div {
+        width: 100%;
+        margin-bottom: 1.5rem;
+      }
+      
+      .mobile-full-width {
+        width: 100%;
+      }
+      
+      .mobile-text-center {
+        text-align: center;
+      }
+      
+      .mobile-mt {
+        margin-top: 1.5rem;
+      }
+    }
+    
+    /* Animasi untuk elemen */
+    .fade-in {
+      animation: fadeIn 0.8s ease-in-out;
+    }
+    
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .hover-scale {
+      transition: transform 0.3s ease;
+    }
+    
+    .hover-scale:hover {
+      transform: scale(1.03);
+    }
+    
+    .pulse-animation {
+      animation: pulse 2s infinite;
+    }
+    
     @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.5; }
-    }
-    .animate-pulse {
-      animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-    }
-    .loading {
-      display: inline-block;
-      position: relative;
-      width: 80px;
-      height: 20px;
-    }
-    .loading div {
-      position: absolute;
-      top: 8px;
-      width: 12px;
-      height: 12px;
-      border-radius: 50%;
-      background: #e53e3e;
-      animation-timing-function: cubic-bezier(0, 1, 1, 0);
-    }
-    .loading div:nth-child(1) {
-      left: 8px;
-      animation: loading1 0.6s infinite;
-    }
-    .loading div:nth-child(2) {
-      left: 32px;
-      animation: loading2 0.6s infinite;
-    }
-    .loading div:nth-child(3) {
-      left: 56px;
-      animation: loading3 0.6s infinite;
-    }
-    @keyframes loading1 {
-      0% { transform: scale(0); }
-      100% { transform: scale(1); }
-    }
-    @keyframes loading2 {
-      0% { transform: translate(-16px, 0) scale(0); }
-      100% { transform: translate(0, 0) scale(1); }
-    }
-    @keyframes loading3 {
-      0% { transform: scale(0); }
-      100% { transform: scale(1); }
+      0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+      70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
     }
   </style>
 </head>
-<body class="bg-gray-100 min-h-screen">
-  <div class="container mx-auto p-4 max-w-md">
-    <!-- Header with logo -->
-    <div class="flex justify-center mb-6 mt-4">
-      <div class="bg-red-600 p-3 rounded-full">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-white" viewBox="0 0 20 20" fill="currentColor">
-          <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z" />
-        </svg>
+<body class="bg-gray-100 min-h-screen" oncontextmenu="return false;">
+  <header class="bg-red-600 text-white shadow-lg">
+    <div class="container mx-auto px-4 py-4 md:py-6 mobile-container">
+      <div class="flex justify-between items-center">
+        <div class="flex items-center">
+          <div class="bg-white p-2 rounded-full mr-3">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 md:h-8 md:w-8 text-red-600" viewBox="0 0 20 20" fill="currentColor">
+              <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z" />
+            </svg>
+          </div>
+          <div>
+            <h1 class="text-xl md:text-2xl font-bold header-title">Coca-Cola Code Claimer</h1>
+            <p class="text-xs md:text-sm opacity-80">Klaim kode dengan cepat dan mudah</p>
+          </div>
+        </div>
+        <div>
+          <a href="#pricing" class="bg-white text-red-600 px-3 py-1 md:px-4 md:py-2 rounded-lg font-bold hover:bg-red-100 transition duration-300 text-sm md:text-base">Dapatkan Akses</a>
+        </div>
       </div>
     </div>
-    
-    <!-- Main card -->
-    <div class="bg-white rounded-lg shadow-lg overflow-hidden">
-      <div class="p-6">
-        <h1 class="text-xl font-bold text-center text-red-600 mb-4">Coca-Cola Code Claimer</h1>
+  </header>
+
+  <!-- Hero Section -->
+  <section class="py-10 md:py-16 bg-gradient-to-b from-red-500 to-red-600 text-white mobile-py">
+    <div class="container mx-auto px-4 mobile-container">
+      <div class="flex flex-col md:flex-row items-center mobile-stack">
+        <div class="md:w-1/2 mb-8 md:mb-0 fade-in">
+          <h2 class="text-3xl md:text-4xl font-bold mb-4 md:mb-6 mobile-text-center md:text-left">Klaim Kode Coca-Cola Dengan Mudah</h2>
+          <p class="text-lg md:text-xl mb-6 md:mb-8 mobile-text-center md:text-left">Berhenti bersusah payah dengan klaim manual. Tools kami mengotomatiskan proses dan meningkatkan peluang sukses Anda.</p>
+          <div class="flex space-x-4 justify-center md:justify-start">
+            <a href="#features" class="bg-white text-red-600 px-4 py-2 md:px-6 md:py-3 rounded-lg font-bold hover:bg-red-100 transition duration-300">Pelajari Lebih</a>
+            <a href="#pricing" class="bg-transparent border-2 border-white px-4 py-2 md:px-6 md:py-3 rounded-lg font-bold hover:bg-white hover:text-red-600 transition duration-300">Mulai Sekarang</a>
+          </div>
+        </div>
+        <div class="md:w-1/2 fade-in" style="animation-delay: 0.3s;">
+          <img src="https://images.unsplash.com/photo-1622483767028-3f66f32aef97?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1170&q=80" alt="Botol Coca-Cola" class="rounded-lg shadow-2xl w-full h-auto">
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features Section -->
+  <section id="features" class="py-10 md:py-16 bg-white mobile-py">
+    <div class="container mx-auto px-4 mobile-container">
+      <h2 class="text-2xl md:text-3xl font-bold text-center mb-8 md:mb-12">Mengapa Memilih Tools Kami?</h2>
+      
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-10">
+        <div class="bg-gray-50 p-5 md:p-6 rounded-lg shadow-md hover-scale">
+          <div class="bg-red-100 text-red-600 w-12 h-12 md:w-14 md:h-14 rounded-full flex items-center justify-center mb-4">
+            <i class="fas fa-bolt text-xl md:text-2xl"></i>
+          </div>
+          <h3 class="text-lg md:text-xl font-semibold mb-2 md:mb-3">Super Cepat</h3>
+          <p class="text-gray-600 text-sm md:text-base">Tools kami mencoba beberapa kode per detik, menghemat waktu Anda berjam-jam dari klaim manual.</p>
+        </div>
         
-        <!-- Form inputs -->
-        <div class="space-y-4">
-          <div>
-            <label for="coca-cola-link" class="block text-sm font-medium text-gray-700 mb-1">Coca-Cola Link</label>
-            <div class="relative">
-              <input type="text" id="coca-cola-link" placeholder="https://ayo.coca-cola.co.id/s/XXXXXXXXXX" 
-                    class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500 pr-10"
-                    oninput="maskCokeLink(this)">
-              <div id="masked-link-display" class="absolute inset-y-0 left-0 flex items-center px-3 pointer-events-none text-gray-500 overflow-hidden"></div>
-              <button type="button" id="toggle-link-visibility" class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 focus:outline-none">
-                <!-- Eye Icon (Show) -->
-                <svg xmlns="http://www.w3.org/2000/svg" id="show-link-icon" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                  <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
-                  <path fill-rule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clip-rule="evenodd" />
-                </svg>
-                <!-- Eye Off Icon (Hide) -->
-                <svg xmlns="http://www.w3.org/2000/svg" id="hide-link-icon" class="h-5 w-5 hidden" viewBox="0 0 20 20" fill="currentColor">
-                  <path fill-rule="evenodd" d="M3.707 2.293a1 1 0 00-1.414 1.414l14 14a1 1 0 001.414-1.414l-1.473-1.473A10.014 10.014 0 0019.542 10C18.268 5.943 14.478 3 10 3a9.958 9.958 0 00-4.512 1.074l-1.78-1.781zm4.261 4.26l1.514 1.515a2.003 2.003 0 012.45 2.45l1.514 1.514a4 4 0 00-5.478-5.478z" clip-rule="evenodd" />
-                  <path d="M12.454 16.697L9.75 13.992a4 4 0 01-3.742-3.741L2.335 6.578A9.98 9.98 0 00.458 10c1.274 4.057 5.065 7 9.542 7 .847 0 1.669-.105 2.454-.303z" />
-                </svg>
-              </button>
-            </div>
-            <p class="text-xs text-gray-500 mt-1">Paste your Coca-Cola link here (click the eye icon to show/hide the full link)</p>
+        <div class="bg-gray-50 p-5 md:p-6 rounded-lg shadow-md hover-scale">
+          <div class="bg-red-100 text-red-600 w-12 h-12 md:w-14 md:h-14 rounded-full flex items-center justify-center mb-4">
+            <i class="fas fa-lock text-xl md:text-2xl"></i>
           </div>
-          
-          <div>
-            <label for="packaging-code" class="block text-sm font-medium text-gray-700 mb-1">Packaging Code</label>
-            <input type="text" id="packaging-code" placeholder="Enter code (e.g. 6HXXXXX)" 
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500">
-          </div>
-          
-          <!-- Start button -->
-          <button id="start-button" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded transition-colors duration-300">
-            Start Claim
-          </button>
+          <h3 class="text-lg md:text-xl font-semibold mb-2 md:mb-3">Akses Aman</h3>
+          <p class="text-gray-600 text-sm md:text-base">Kode unik Anda memberikan akses eksklusif yang bisa digunakan hingga 3 perangkat.</p>
         </div>
-      </div>
-      
-      <!-- Token extraction status - Updated with clearer language -->
-      <div id="token-status" class="hidden px-6 pb-2">
-        <div class="p-3 rounded bg-blue-50 text-blue-800">
-          <div class="flex items-center mb-2">
-            <div class="loading mr-2">
-              <div></div>
-              <div></div>
-              <div></div>
-            </div>
-            <span class="font-medium">Membuka link Coca-Cola...</span>
+        
+        <div class="bg-gray-50 p-5 md:p-6 rounded-lg shadow-md hover-scale">
+          <div class="bg-red-100 text-red-600 w-12 h-12 md:w-14 md:h-14 rounded-full flex items-center justify-center mb-4">
+            <i class="fas fa-trophy text-xl md:text-2xl"></i>
           </div>
-          <div class="text-xs">
-            <p>Sedang membuka link untuk mengambil data penting. Proses ini bisa memakan waktu 10-30 detik.</p>
-            <p class="mt-1">Mohon jangan tutup halaman ini selama proses berlangsung.</p>
-            <p id="extraction-attempt" class="mt-1 font-semibold"></p>
-          </div>
-        </div>
-      </div>
-      
-      <!-- Progress section -->
-      <div class="px-6 pb-4">
-        <div class="relative pt-1">
-          <div class="flex mb-2 items-center justify-between">
-            <div>
-              <span id="attempt-counter" class="text-xs font-semibold inline-block text-red-600">
-                Siap memulai
-              </span>
-            </div>
-          </div>
-          <div class="overflow-hidden h-2 mb-4 text-xs flex rounded bg-red-100">
-            <div id="progress-bar" class="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-red-600 transition-all duration-300" style="width: 0%"></div>
-          </div>
-        </div>
-      </div>
-      
-      <!-- Results section -->
-      <div class="border-t border-gray-200 px-6 py-4">
-        <h2 class="text-sm font-medium text-gray-700 mb-3">Hasil Proses</h2>
-        <div id="result-display" class="bg-gray-50 p-3 rounded-md max-h-60 overflow-y-auto text-sm">
-          <div class="text-gray-400 text-center">Menunggu untuk memulai...</div>
+          <h3 class="text-lg md:text-xl font-semibold mb-2 md:mb-3">Tingkat Keberhasilan Tinggi</h3>
+          <p class="text-gray-600 text-sm md:text-base">Algoritma kami yang dioptimalkan meningkatkan peluang klaim yang berhasil.</p>
         </div>
       </div>
     </div>
-    
-    <!-- Footer -->
-    <div class="mt-4 text-center text-xs text-gray-500">
-      <p>Made with ❤️ for Coca-Cola collectors</p>
+  </section>
+
+  <!-- Cara Kerja Section -->
+  <section class="py-10 md:py-16 bg-gray-50 mobile-py">
+    <div class="container mx-auto px-4 mobile-container">
+      <h2 class="text-2xl md:text-3xl font-bold text-center mb-8 md:mb-12">Cara Kerjanya</h2>
+      
+      <div class="max-w-3xl mx-auto">
+        <div class="flex flex-col md:flex-row items-center mb-8 md:mb-12">
+          <div class="bg-red-600 text-white rounded-full w-10 h-10 md:w-12 md:h-12 flex items-center justify-center text-lg md:text-xl font-bold mb-3 md:mb-0 md:mr-6">1</div>
+          <div class="text-center md:text-left">
+            <h3 class="text-lg md:text-xl font-semibold mb-1 md:mb-2">Beli Akses</h3>
+            <p class="text-gray-600 text-sm md:text-base">Pilih paket yang sesuai kebutuhan Anda dan selesaikan pembayaran.</p>
+          </div>
+        </div>
+        
+        <div class="flex flex-col md:flex-row items-center mb-8 md:mb-12">
+          <div class="bg-red-600 text-white rounded-full w-10 h-10 md:w-12 md:h-12 flex items-center justify-center text-lg md:text-xl font-bold mb-3 md:mb-0 md:mr-6">2</div>
+          <div class="text-center md:text-left">
+            <h3 class="text-lg md:text-xl font-semibold mb-1 md:mb-2">Dapatkan Kode Unik Anda</h3>
+            <p class="text-gray-600 text-sm md:text-base">Kami akan mengirimkan URL unik dengan kode akses yang bisa digunakan di 3 perangkat.</p>
+          </div>
+        </div>
+        
+        <div class="flex flex-col md:flex-row items-center">
+          <div class="bg-red-600 text-white rounded-full w-10 h-10 md:w-12 md:h-12 flex items-center justify-center text-lg md:text-xl font-bold mb-3 md:mb-0 md:mr-6">3</div>
+          <div class="text-center md:text-left">
+            <h3 class="text-lg md:text-xl font-semibold mb-1 md:mb-2">Mulai Klaim</h3>
+            <p class="text-gray-600 text-sm md:text-base">Masukkan link Coca-Cola dan kode kemasan Anda, lalu biarkan tools kami bekerja!</p>
+          </div>
+        </div>
+      </div>
     </div>
-  </div>
-  
-  <script src="/js/claim.js"></script>
+  </section>
+
+  <!-- Pricing Section -->
+  <section id="pricing" class="py-10 md:py-16 bg-white mobile-py">
+    <div class="container mx-auto px-4 mobile-container">
+      <h2 class="text-2xl md:text-3xl font-bold text-center mb-3 md:mb-4">Pilihan Paket</h2>
+      <p class="text-center text-gray-600 mb-8 md:mb-12 max-w-2xl mx-auto">Pilih paket yang sesuai untuk Anda. Semua paket termasuk akses ke alat klaim kode Coca-Cola kami.</p>
+      
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
+        <!-- Paket Trial -->
+        <div class="border border-gray-200 rounded-lg p-6 hover:shadow-lg transition duration-300 hover-scale">
+          <div class="bg-blue-100 text-blue-600 px-3 py-1 rounded-full text-xs font-bold inline-block mb-2">TRIAL</div>
+          <h3 class="text-xl md:text-2xl font-bold mb-2">Trial 1 Hari</h3>
+          <p class="text-gray-600 mb-4">Coba dulu sebelum berlangganan</p>
+          <p class="text-2xl md:text-4xl font-bold mb-4">Gratis</p>
+          <ul class="space-y-3 mb-8">
+            <li class="flex items-center">
+              <svg class="h-5 w-5 text-green-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+              </svg>
+              1 Hari Akses
+            </li>
+            <li class="flex items-center">
+              <svg class="h-5 w-5 text-green-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+              </svg>
+              1 Perangkat
+            </li>
+            <li class="flex items-center">
+              <svg class="h-5 w-5 text-green-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+              </svg>
+              Support Dasar
+            </li>
+          </ul>
+          <a href="https://wa.me/6282167565321?text=Saya%20ingin%20mencoba%20paket%20Trial" class="block text-center bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-4 rounded-lg transition duration-300">Coba Gratis</a>
+        </div>
+        
+        <!-- Paket Premium -->
+        <div class="border-2 border-red-500 rounded-lg p-6 shadow-lg relative pulse-animation">
+          <div class="absolute top-0 right-0 bg-red-500 text-white px-3 py-1 text-sm font-bold rounded-bl-lg rounded-tr-lg">REKOMENDASI</div>
+          <div class="bg-red-100 text-red-600 px-3 py-1 rounded-full text-xs font-bold inline-block mb-2">PREMIUM</div>
+          <h3 class="text-xl md:text-2xl font-bold mb-2">Akses Penuh</h3>
+          <p class="text-gray-600 mb-4">Untuk klaim kode maksimal</p>
+          <p class="text-2xl md:text-4xl font-bold mb-4">Rp 10.000</p>
+          <ul class="space-y-3 mb-8">
+            <li class="flex items-center">
+              <svg class="h-5 w-5 text-green-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+              </svg>
+              Akses Sampai 30 Juni 2025
+            </li>
+            <li class="flex items-center">
+              <svg class="h-5 w-5 text-green-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+              </svg>
+              3 Perangkat
+            </li>
+            <li class="flex items-center">
+              <svg class="h-5 w-5 text-green-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+              </svg>
+              Priority Support
+            </li>
+            <li class="flex items-center">
+              <svg class="h-5 w-5 text-green-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+              </svg>
+              Bantuan Jika Ada Kendala
+            </li>
+          </ul>
+          <a href="https://wa.me/6282167565321?text=Saya%20ingin%20membeli%20paket%20Premium" class="block text-center bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-4 rounded-lg transition duration-300">Dapatkan Akses</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Call to Action -->
+  <section class="py-10 md:py-16 bg-red-600 text-white mobile-py">
+    <div class="container mx-auto px-4 text-center mobile-container">
+      <h2 class="text-2xl md:text-3xl font-bold mb-4 md:mb-6">Siap Mulai Klaim?</h2>
+      <p class="text-lg md:text-xl mb-6 md:mb-8 max-w-2xl mx-auto">Dapatkan kode akses Anda sekarang dan mulai klaim kode Coca-Cola lebih efisien dari sebelumnya.</p>
+      <a href="#pricing" class="bg-white text-red-600 px-6 py-3 md:px-8 md:py-4 rounded-lg font-bold text-base md:text-lg hover:bg-red-100 transition duration-300 inline-block">Dapatkan Kode Akses</a>
+    </div>
+  </section>
+
+  <!-- Event Section -->
+  <section class="py-10 md:py-16 bg-gray-50 mobile-py">
+    <div class="container mx-auto px-4 mobile-container">
+      <div class="max-w-4xl mx-auto bg-white rounded-lg shadow-lg overflow-hidden">
+        <div class="md:flex">
+          <div class="md:w-1/3 bg-red-600 text-white p-6 flex flex-col justify-center items-center">
+            <h3 class="text-xl md:text-2xl font-bold mb-2 text-center">Event Coca-Cola</h3>
+            <p class="text-center mb-4">Promo Voucher Cinepolis</p>
+            <div class="bg-white text-red-600 rounded-lg px-4 py-2 font-bold">
+              Berakhir: 30 Juni 2025
+            </div>
+          </div>
+          <div class="md:w-2/3 p-6">
+            <h4 class="text-lg md:text-xl font-bold mb-4">Tentang Event Ini</h4>
+            <p class="text-gray-600 mb-4">
+              Event Coca-Cola menawarkan kesempatan untuk mendapatkan voucher Cinepolis dengan menukarkan kode dari tutup botol Coca-Cola. Dengan tools kami, Anda dapat meningkatkan peluang sukses menukar kode tersebut.
+            </p>
+            <div class="grid grid-cols-2 gap-4 w-full">
+              <div class="bg-gray-100 rounded-lg px-4 py-2 text-sm">
+                <span class="font-bold">Voucher Gratis Cinepolis</span>
+              </div>
+              <div class="bg-gray-100 rounded-lg px-4 py-2 text-sm">
+                <span class="font-bold">Voucher Cinepolis B1G1</span>
+              </div>
+              <div class="bg-gray-100 rounded-lg px-4 py-2 text-sm">
+                <span class="font-bold">Voucher Alfamart</span>
+              </div>
+              <div class="bg-gray-100 rounded-lg px-4 py-2 text-sm">
+                <span class="font-bold">Voucher Grabfood</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="bg-gray-800 text-white py-8 md:py-12">
+    <div class="container mx-auto px-4 mobile-container text-center">
+      <p class="text-sm md:text-base">&copy; 2025 Coca-Cola Code Claimer.</p>
+      <p class="text-xs md:text-sm mt-2">Layanan ini tidak berafiliasi dengan atau didukung oleh The Coca-Cola Company.</p>
+    </div>
+  </footer>
 </body>
 </html>

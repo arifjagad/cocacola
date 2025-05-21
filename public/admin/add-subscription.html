@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Add New Subscription - Coca-Cola Code Claimer</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center p-4">
+  <div class="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+    <div class="flex justify-between items-center mb-6">
+      <div class="flex items-center">
+        <div class="bg-red-600 p-2 rounded-full mr-3">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-white" viewBox="0 0 20 20" fill="currentColor">
+            <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z" />
+          </svg>
+        </div>
+        <h1 class="text-xl font-bold">Add New Subscription</h1>
+      </div>
+    </div>
+    
+    <form id="subscription-form">
+      <div class="mb-4">
+        <label for="customer-name" class="block text-sm font-medium text-gray-700 mb-1">Customer Name</label>
+        <input type="text" id="customer-name" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-red-500 focus:border-red-500" required>
+      </div>
+      
+      <div class="mb-4">
+        <label for="email" class="block text-sm font-medium text-gray-700 mb-1">Email (optional)</label>
+        <input type="email" id="email" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-red-500 focus:border-red-500">
+      </div>
+      
+      <div class="mb-4">
+        <label for="contact-info" class="block text-sm font-medium text-gray-700 mb-1">WhatsApp Number</label>
+        <input type="text" id="contact-info" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-red-500 focus:border-red-500" required>
+      </div>
+      
+      <div class="mb-4">
+        <label for="subscription-type" class="block text-sm font-medium text-gray-700 mb-1">Subscription Type</label>
+        <select id="subscription-type" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-red-500 focus:border-red-500" required>
+          <option value="Trial">Trial (1 Day)</option>
+          <option value="Premium" selected>Premium (Event Duration)</option>
+        </select>
+      </div>
+      
+      <div class="mb-4">
+        <label for="device-limit" class="block text-sm font-medium text-gray-700 mb-1">Device Limit</label>
+        <input type="number" id="device-limit" min="1" max="5" value="3" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-red-500 focus:border-red-500" required>
+      </div>
+      
+      <div class="mb-6">
+        <label for="access-code" class="block text-sm font-medium text-gray-700 mb-1">Access Code (optional)</label>
+        <div class="flex">
+          <input type="text" id="access-code" class="flex-1 px-3 py-2 border border-gray-300 rounded-l-md focus:outline-none focus:ring-red-500 focus:border-red-500">
+          <button type="button" id="generate-code" class="bg-gray-200 px-3 py-2 rounded-r-md hover:bg-gray-300 transition">Generate</button>
+        </div>
+        <p class="text-xs text-gray-500 mt-1">Leave blank to auto-generate</p>
+      </div>
+      
+      <button type="submit" id="save-subscription" class="w-full bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 transition">
+        Create Subscription
+      </button>
+    </form>
+    
+    <!-- Result Section (Hidden by Default) -->
+    <div id="result-section" class="mt-6 hidden">
+      <div class="p-4 bg-green-100 rounded-md mb-4">
+        <h3 class="font-medium text-green-800 mb-2">Subscription Created Successfully!</h3>
+        <p class="text-green-700 text-sm mb-3">Please share the following unique URL with your customer:</p>
+        
+        <div class="flex">
+          <input type="text" id="subscription-url" class="flex-1 px-3 py-2 border border-gray-300 rounded-l-md bg-gray-50" readonly>
+          <button type="button" id="copy-url" class="bg-blue-500 text-white px-3 py-2 rounded-r-md hover:bg-blue-600 transition">Copy</button>
+        </div>
+      </div>
+      
+      <div class="flex space-x-3">
+        <button type="button" id="create-another" class="flex-1 bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300 transition">
+          Create Another
+        </button>
+        <a href="#" id="view-subscription-link" class="flex-1 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition text-center" target="_blank">
+          View Subscription
+        </a>
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    // Extract admin token from URL
+    const url = new URL(window.location.href);
+    const pathParts = url.pathname.split('/');
+    const adminToken = pathParts[pathParts.length - 1];
+    
+    document.addEventListener('DOMContentLoaded', function() {
+      // Set up event listeners
+      document.getElementById('subscription-form').addEventListener('submit', handleSubmissionSubmit);
+      document.getElementById('generate-code').addEventListener('click', generateRandomCode);
+      document.getElementById('copy-url').addEventListener('click', copySubscriptionUrl);
+      document.getElementById('create-another').addEventListener('click', resetForm);
+
+      // Set the default device limit based on the subscription type
+      document.getElementById('subscription-type').addEventListener('change', updateDeviceLimit);
+    });
+    
+    function updateDeviceLimit() {
+      const subscriptionType = document.getElementById('subscription-type').value;
+      const deviceLimitInput = document.getElementById('device-limit');
+      
+      // Set defaults based on subscription type
+      if (subscriptionType === 'Trial') {
+        deviceLimitInput.value = '1'; // Trial gets 1 device
+      } else if (subscriptionType === 'Premium') {
+        deviceLimitInput.value = '3'; // Premium gets 3 devices
+      }
+    }
+    
+    // Handle form submission
+    async function handleSubmissionSubmit(e) {
+      e.preventDefault();
+      
+      const subscriptionData = {
+        customer_name: document.getElementById('customer-name').value,
+        email: document.getElementById('email').value,
+        contact_info: document.getElementById('contact-info').value,
+        type: document.getElementById('subscription-type').value,
+        device_limit: parseInt(document.getElementById('device-limit').value),
+        access_code: document.getElementById('access-code').value
+      };
+      
+      // Disable the button during submission
+      const submitButton = document.getElementById('save-subscription');
+      submitButton.disabled = true;
+      submitButton.textContent = 'Creating...';
+      
+      try {
+        const response = await fetch(`/api/admin/subscriptions?adminToken=${adminToken}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(subscriptionData)
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || 'Failed to create subscription');
+        }
+        
+        const savedSubscription = await response.json();
+        
+        // Tampilkan informasi tentang expiry date
+        console.log("Subscription created with expiry date:", new Date(savedSubscription.expiry_date).toLocaleString());
+        
+        // Show the success result
+        const subscriptionUrl = `${window.location.origin}/claim?code=${savedSubscription.access_code}`;
+        document.getElementById('subscription-url').value = subscriptionUrl;
+        document.getElementById('result-section').classList.remove('hidden');
+        document.getElementById('subscription-form').classList.add('hidden');
+        
+        // Set up the "View Subscription" link
+        document.getElementById('view-subscription-link').href = subscriptionUrl;
+        
+      } catch (error) {
+        console.error('Error creating subscription:', error);
+        alert('Error: ' + error.message);
+        
+        // Re-enable the button
+        submitButton.disabled = false;
+        submitButton.textContent = 'Create Subscription';
+      }
+    }
+    
+    // Generate random access code
+    function generateRandomCode() {
+      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+      let result = '';
+      for (let i = 0; i < 8; i++) {
+        result += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      document.getElementById('access-code').value = result;
+    }
+    
+    // Copy subscription URL
+    function copySubscriptionUrl() {
+      const urlInput = document.getElementById('subscription-url');
+      urlInput.select();
+      document.execCommand('copy');
+      
+      // Show feedback
+      const copyButton = document.getElementById('copy-url');
+      const originalText = copyButton.textContent;
+      copyButton.textContent = 'Copied!';
+      copyButton.classList.remove('bg-blue-500', 'hover:bg-blue-600');
+      copyButton.classList.add('bg-green-500', 'hover:bg-green-600');
+      
+      setTimeout(() => {
+        copyButton.textContent = originalText;
+        copyButton.classList.add('bg-blue-500', 'hover:bg-blue-600');
+        copyButton.classList.remove('bg-green-500', 'hover:bg-green-600');
+      }, 2000);
+    }
+    
+    // Reset form for creating another subscription
+    function resetForm() {
+      // Show the form again
+      document.getElementById('subscription-form').classList.remove('hidden');
+      document.getElementById('result-section').classList.add('hidden');
+      
+      // Clear form fields
+      document.getElementById('customer-name').value = '';
+      document.getElementById('email').value = '';
+      document.getElementById('contact-info').value = '';
+      document.getElementById('subscription-type').value = 'Premium';
+      document.getElementById('device-limit').value = '3';
+      document.getElementById('access-code').value = '';
+      
+      // Reset the button
+      const submitButton = document.getElementById('save-subscription');
+      submitButton.disabled = false;
+      submitButton.textContent = 'Create Subscription';
+    }
+  </script>
+</body>
+</html>
