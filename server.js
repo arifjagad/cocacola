@@ -7,6 +7,10 @@ const fetch = require('node-fetch');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Add global event emitter for tracking attempts
+const EventEmitter = require('events');
+const attemptEmitter = new EventEmitter();
+
 // Middleware
 app.use(cors());
 app.use(express.json());
@@ -124,6 +128,30 @@ app.post('/api/extract-token', async (req, res) => {
   }
 });
 
+// SSE endpoint for attempt tracking
+app.get('/api/attempt-events', (req, res) => {
+  // Set headers for SSE
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  
+  // Send an initial message
+  res.write(`data: ${JSON.stringify({ connected: true })}\n\n`);
+  
+  // Handle attempt updates
+  const attemptHandler = (attempt) => {
+    res.write(`data: ${JSON.stringify({ attempt })}\n\n`);
+  };
+  
+  // Register event listener
+  attemptEmitter.on('attempt', attemptHandler);
+  
+  // Handle client disconnect
+  req.on('close', () => {
+    attemptEmitter.removeListener('attempt', attemptHandler);
+  });
+});
+
 // Claim code endpoint
 app.post('/api/claim', async (req, res) => {
   try {
@@ -161,6 +189,9 @@ app.post('/api/claim', async (req, res) => {
     
     while (attemptCount < maxAttempts && !success) {
       attemptCount++;
+      
+      // Emit the attempt number for SSE
+      attemptEmitter.emit('attempt', attemptCount);
       
       try {
         const response = await fetch(url, {
@@ -203,10 +234,27 @@ app.post('/api/claim', async (req, res) => {
         } else {
           // Success, stop attempts
           success = true;
+          
+          // Try to parse the result data to make it easier for the client
+          let parsedData = null;
+          try {
+            // This is for handling if the data comes as a string that needs parsing
+            if (typeof result.data === 'string') {
+              parsedData = { result: JSON.parse(result.data) };
+            } else if (result.data) {
+              parsedData = { result: result.data };
+            }
+          } catch (parseError) {
+            console.log("Error parsing result data:", parseError);
+          }
+          
           return res.json({
             success: true,
             attempts: attemptCount,
-            result
+            result: {
+              ...result,
+              parsedData
+            }
           });
         }
       } catch (error) {

@@ -114,6 +114,50 @@ async function extractToken(cocaColaLink) {
   }
 }
 
+// Function to determine the success message based on the response data
+function getSuccessMessage(responseData) {
+  try {
+    // First check in the result.result structure (when data is in a nested format)
+    if (responseData && 
+        responseData.parsedData && 
+        responseData.parsedData.result && 
+        responseData.parsedData.result.campaign_public_settings && 
+        responseData.parsedData.result.campaign_public_settings.public_name) {
+      
+      const publicName = responseData.parsedData.result.campaign_public_settings.public_name;
+      
+      // Check for specific public_name values
+      if (publicName === "public-ayo-cola-utc-cinepolis-b1f1") {
+        return "Mendapatkan Voucher Cinepolis B1G1";
+      } else if (publicName === "public-ayo-cola-utc-cinepolis-free") {
+        return "Mendapatkan 1 Voucher Gratis Cinepolis";
+      }
+    }
+    
+    // Also check directly in the response structure (when data is directly in result)
+    if (responseData && 
+        responseData.result && 
+        responseData.result.campaign_public_settings && 
+        responseData.result.campaign_public_settings.public_name) {
+      
+      const publicName = responseData.result.campaign_public_settings.public_name;
+      
+      // Check for specific public_name values
+      if (publicName === "public-ayo-cola-utc-cinepolis-b1f1") {
+        return "Mendapatkan Voucher Cinepolis B1G1";
+      } else if (publicName === "public-ayo-cola-utc-cinepolis-free") {
+        return "Mendapatkan 1 Voucher Gratis Cinepolis";
+      }
+    }
+    
+    // Default case - return a generic success message
+    return "Berhasil claim kode";
+  } catch (error) {
+    console.error("Error parsing success message:", error);
+    return "Berhasil claim kode";
+  }
+}
+
 // Function to claim code via API
 async function claimCode(packagingCode, authorization) {
   try {
@@ -122,12 +166,49 @@ async function claimCode(packagingCode, authorization) {
     const attemptCounter = document.getElementById('attempt-counter');
     const progressBar = document.getElementById('progress-bar');
     
-    // Clear previous results
+    // Clear previous results completely
     resultDisplay.innerHTML = '';
     
     // Update UI to show we're starting
-    attemptCounter.textContent = `Starting claim process...`;
+    attemptCounter.textContent = `Memulai proses claim...`;
     progressBar.style.width = `5%`;
+    
+    // Create a realtime attempt status display that will be updated
+    const realtimeStatusDiv = document.createElement('div');
+    realtimeStatusDiv.id = 'realtime-status';
+    realtimeStatusDiv.className = 'p-2 mb-2 bg-blue-100 text-blue-800 rounded';
+    realtimeStatusDiv.innerHTML = `<span class="font-medium">Sedang memproses...</span>`;
+    resultDisplay.prepend(realtimeStatusDiv);
+    
+    // Set up event source for real-time updates
+    const eventSource = new EventSource('/api/attempt-events');
+    
+    // Update the UI with each attempt
+    eventSource.onmessage = function(event) {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.attempt) {
+          const attemptNum = data.attempt;
+          
+          // Update the realtime status display
+          realtimeStatusDiv.innerHTML = `<span class="font-medium">Mencoba: Percobaan ke-${attemptNum}</span>`;
+          
+          // Update the progress counter
+          attemptCounter.textContent = `Sedang berjalan: Percobaan ke-${attemptNum}`;
+          
+          // Update the progress bar (assuming max 100 attempts)
+          const progressPercent = Math.min(5 + (attemptNum / 100 * 95), 95);
+          progressBar.style.width = `${progressPercent}%`;
+        }
+      } catch (e) {
+        console.error('Error parsing SSE data:', e);
+      }
+    };
+    
+    eventSource.onerror = function() {
+      console.log('SSE connection closed or errored');
+      eventSource.close();
+    };
     
     // Make API call to our Express backend
     const response = await fetch('/api/claim', {
@@ -141,24 +222,34 @@ async function claimCode(packagingCode, authorization) {
       })
     });
     
+    // Close the event source
+    eventSource.close();
+    
     if (!response.ok) {
-      throw new Error(`Server responded with status: ${response.status}`);
+      throw new Error(`Server merespon dengan status: ${response.status}`);
     }
     
     const result = await response.json();
     
+    // Remove the realtime status div
+    if (document.getElementById('realtime-status')) {
+      document.getElementById('realtime-status').remove();
+    }
+    
     // Update progress to complete
     progressBar.style.width = '100%';
-    attemptCounter.textContent = `Completed after ${result.attempts} attempts`;
+    attemptCounter.textContent = `Selesai setelah ${result.attempts} percobaan`;
     
     // Create result entry
     const logEntry = document.createElement('div');
     
     if (result.success) {
-      // Success case
+      // Success case - Get custom message based on response data
+      const successMessage = getSuccessMessage(result.result);
+      
       logEntry.className = 'p-2 mb-2 bg-green-100 text-green-800 rounded';
-      logEntry.innerHTML = `<strong>Success on attempt ${result.attempts}:</strong><br> ${JSON.stringify(result.result, null, 2)}`;
-      showToast('Code successfully claimed!', 'success');
+      logEntry.innerHTML = `<strong>${successMessage}</strong><br><span class="text-xs">(${result.attempts} percobaan)</span><br>${JSON.stringify(result.result, null, 2)}`;
+      showToast(successMessage, 'success');
     } else {
       // Error case
       switch (result.status) {
@@ -180,7 +271,7 @@ async function claimCode(packagingCode, authorization) {
         default:
           logEntry.className = 'p-2 mb-2 bg-red-100 text-red-800 rounded';
           logEntry.innerHTML = `<strong>Error:</strong><br> ${JSON.stringify(result, null, 2)}`;
-          showToast('Error processing request', 'error');
+          showToast('Terjadi kesalahan saat memproses permintaan', 'error');
       }
     }
     
@@ -189,7 +280,7 @@ async function claimCode(packagingCode, authorization) {
     
     // Re-enable the start button
     document.getElementById('start-button').disabled = false;
-    document.getElementById('start-button').textContent = 'Start Claim';
+    document.getElementById('start-button').textContent = 'Mulai Claim';
     
     return result;
   } catch (error) {
@@ -204,7 +295,7 @@ async function claimCode(packagingCode, authorization) {
     
     // Re-enable the start button
     document.getElementById('start-button').disabled = false;
-    document.getElementById('start-button').textContent = 'Start Claim';
+    document.getElementById('start-button').textContent = 'Mulai Claim';
     
     // Update toast
     showToast(`Error: ${error.message}`, 'error');
@@ -213,9 +304,98 @@ async function claimCode(packagingCode, authorization) {
   }
 }
 
+// Function to update the attempt display
+function updateAttemptDisplay(attemptNumber) {
+  // Update the realtime attempt display
+  const realtimeDiv = document.getElementById('realtime-attempt');
+  if (realtimeDiv) {
+    realtimeDiv.innerHTML = `<strong>Mencoba: Percobaan ${attemptNumber}</strong>`;
+  }
+  
+  // Update the progress bar
+  const progressBar = document.getElementById('progress-bar');
+  const attemptCounter = document.getElementById('attempt-counter');
+  
+  // Assume max attempts is 100 for progress bar calculation
+  const progressPercent = Math.min(5 + ((attemptNumber / 100) * 95), 95);
+  progressBar.style.width = `${progressPercent}%`;
+  
+  // Update attempt counter text
+  attemptCounter.textContent = `Sedang berjalan: Percobaan ke-${attemptNumber}`;
+}
+
+// Variables to track link visibility state
+let isLinkVisible = false;
+
+// Function to mask the sensitive part of Coca-Cola link
+function maskCokeLink(inputElement) {
+  const value = inputElement.value;
+  const displayElement = document.getElementById('masked-link-display');
+  
+  // If link is set to visible, don't mask anything
+  if (isLinkVisible) {
+    displayElement.style.display = 'none';
+    inputElement.style.color = '';
+    return;
+  }
+  
+  // Check if the link follows the expected pattern
+  if (value && value.includes('/s/')) {
+    const parts = value.split('/s/');
+    const domain = parts[0] + '/s/';
+    const id = parts[1];
+    
+    // Create a masked version where we show only the domain part
+    // and replace the ID part with asterisks
+    if (id) {
+      // Show the real input as invisible but put a masked overlay
+      displayElement.innerHTML = `${domain}<span class="font-bold text-black">${'•'.repeat(Math.min(id.length, 10))}</span>`;
+      displayElement.style.display = 'flex';
+      
+      // Make sure we're not covering any text that's being typed
+      inputElement.style.color = 'transparent';
+      inputElement.style.caretColor = '#4b5563'; // Make the cursor visible
+    } else {
+      // If there's no ID part yet, just show the domain
+      displayElement.innerHTML = domain;
+      displayElement.style.display = 'flex';
+      inputElement.style.color = 'transparent';
+      inputElement.style.caretColor = '#4b5563';
+    }
+  } else {
+    // If it doesn't match our pattern, show the raw input
+    displayElement.style.display = 'none';
+    inputElement.style.color = '';
+  }
+}
+
+// Function to toggle link visibility
+function toggleLinkVisibility() {
+  const linkInput = document.getElementById('coca-cola-link');
+  const showIcon = document.getElementById('show-link-icon');
+  const hideIcon = document.getElementById('hide-link-icon');
+  const maskedDisplay = document.getElementById('masked-link-display');
+  
+  isLinkVisible = !isLinkVisible;
+  
+  if (isLinkVisible) {
+    // Show the actual link text
+    linkInput.style.color = '';
+    maskedDisplay.style.display = 'none';
+    showIcon.classList.add('hidden');
+    hideIcon.classList.remove('hidden');
+  } else {
+    // Re-mask the link
+    showIcon.classList.remove('hidden');
+    hideIcon.classList.add('hidden');
+    maskCokeLink(linkInput);
+  }
+}
+
 // Initialize UI when document is loaded
 document.addEventListener('DOMContentLoaded', function() {
   const startButton = document.getElementById('start-button');
+  const linkInput = document.getElementById('coca-cola-link');
   
   // Click event for the start button
   startButton.addEventListener('click', async function() {
@@ -224,34 +404,37 @@ document.addEventListener('DOMContentLoaded', function() {
       const packagingCode = document.getElementById('packaging-code').value;
       
       if (!cocaColaLink || !packagingCode) {
-        showToast('Please fill in both Coca-Cola Link and Packaging Code', 'error');
+        showToast('Silakan isi link Coca-Cola dan Kode Kemasan', 'error');
         return;
       }
 
       // Validate that the link is a Coca-Cola link
       if (!cocaColaLink.includes('ayo.coca-cola.co.id')) {
-        showToast('Please enter a valid Coca-Cola link', 'error');
+        showToast('Silakan masukkan link Coca-Cola yang valid', 'error');
         return;
       }
       
+      // Clear any previous results first when starting a new claim
+      document.getElementById('result-display').innerHTML = '<div class="text-gray-400 text-center">Memulai proses baru...</div>';
+      
       // Update button state
       this.disabled = true;
-      this.textContent = 'Processing...';
+      this.textContent = 'Memproses...';
       
       // Reset progress
       document.getElementById('progress-bar').style.width = '0%';
-      document.getElementById('attempt-counter').textContent = 'Extracting token...';
+      document.getElementById('attempt-counter').textContent = 'Mengekstrak token...';
       
       // First extract the authorization token from the link
-      showToast('Extracting authorization token from link...', 'info');
+      showToast('Mendapatkan token dari link...', 'info');
       const token = await extractToken(cocaColaLink);
       
       if (!token) {
-        throw new Error('Failed to extract authorization token');
+        throw new Error('Gagal mendapatkan token dari link');
       }
       
       // Then start the claim process with the extracted token
-      showToast('Token extracted successfully, starting claim process...', 'success');
+      showToast('Token berhasil diekstrak, memulai proses claim...', 'success');
       await claimCode(packagingCode, token);
       
     } catch (error) {
@@ -260,7 +443,16 @@ document.addEventListener('DOMContentLoaded', function() {
       
       // Re-enable the start button
       this.disabled = false;
-      this.textContent = 'Start Claim';
+      this.textContent = 'Mulai Claim';
     }
   });
+  
+  // Initialize the masking for the Coca-Cola link input
+  if (linkInput.value) {
+    maskCokeLink(linkInput);
+  }
+  
+  // Set up the visibility toggle
+  const toggleButton = document.getElementById('toggle-link-visibility');
+  toggleButton.addEventListener('click', toggleLinkVisibility);
 });
