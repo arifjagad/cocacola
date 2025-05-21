@@ -342,6 +342,10 @@ app.post('/api/check-subscription', async (req, res) => {
         message: 'Access code and device ID are required'
       });
     }
+
+    // Ambil IP address pengguna
+    const ipAddress = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
+    console.log(`Subscription check - Device ID: ${deviceId.substring(0, 8)}... IP: ${ipAddress}`);
     
     // Query Supabase for the subscription
     const { data: subscription, error } = await supabase
@@ -351,6 +355,7 @@ app.post('/api/check-subscription', async (req, res) => {
       .single();
     
     if (error || !subscription) {
+      console.log(`Invalid subscription check - Code: ${accessCode}, IP: ${ipAddress}`);
       return res.status(404).json({
         valid: false,
         message: 'Invalid access code or subscription not found'
@@ -362,6 +367,7 @@ app.post('/api/check-subscription', async (req, res) => {
     const expiryDate = new Date(subscription.expiry_date);
     
     if (expiryDate < now) {
+      console.log(`Expired subscription - Code: ${accessCode}, IP: ${ipAddress}`);
       return res.status(403).json({
         valid: false,
         message: 'Your subscription has expired'
@@ -382,26 +388,29 @@ app.post('/api/check-subscription', async (req, res) => {
       });
     }
     
-    // Find if this device is already registered
-    const thisDevice = devices.find(d => d.device_id === deviceId);
+    // Find if this device is already registered by deviceId OR ip address
+    const thisDevice = devices.find(d => d.device_id === deviceId || d.ip_address === ipAddress);
     
     if (!thisDevice) {
       // This is a new device, check if we've reached the limit
       if (devices.length >= subscription.device_limit) {
+        console.log(`Device limit reached - Code: ${accessCode}, IP: ${ipAddress}, Device ID: ${deviceId.substring(0, 8)}...`);
         return res.status(403).json({
           valid: false,
           message: `Device limit reached. This subscription can only be used on ${subscription.device_limit} devices.`
         });
       }
       
-      // Register this device
+      // Register this device with both deviceId AND IP address
       const { error: registerError } = await supabase
         .from('devices')
         .insert([
           {
             subscription_id: subscription.id,
             device_id: deviceId,
-            last_active: new Date().toISOString()
+            ip_address: ipAddress,
+            last_active: new Date().toISOString(),
+            first_seen: new Date().toISOString()
           }
         ]);
       
@@ -412,12 +421,30 @@ app.post('/api/check-subscription', async (req, res) => {
           message: 'Error registering your device'
         });
       }
+      
+      console.log(`New device registered - Code: ${accessCode}, IP: ${ipAddress}, Device ID: ${deviceId.substring(0, 8)}...`);
     } else {
-      // Update last active timestamp for this device
+      // Update device record with both current deviceId and IP
+      const updates = {
+        last_active: new Date().toISOString()
+      };
+      
+      // Update IP if it changed
+      if (thisDevice.ip_address !== ipAddress) {
+        updates.ip_address = ipAddress;
+      }
+      
+      // Update device ID if it was previously only tracked by IP
+      if (thisDevice.device_id !== deviceId) {
+        updates.device_id = deviceId;
+      }
+      
       await supabase
         .from('devices')
-        .update({ last_active: new Date().toISOString() })
+        .update(updates)
         .eq('id', thisDevice.id);
+        
+      console.log(`Existing device updated - Code: ${accessCode}, IP: ${ipAddress}, Device ID: ${deviceId.substring(0, 8)}...`);
     }
     
     // Return subscription info
@@ -426,7 +453,11 @@ app.post('/api/check-subscription', async (req, res) => {
       subscriptionType: subscription.type,
       expiryDate: subscription.expiry_date,
       deviceCount: thisDevice ? devices.length : devices.length + 1,
-      deviceLimit: subscription.device_limit
+      deviceLimit: subscription.device_limit,
+      deviceInfo: {
+        deviceId: deviceId.substring(0, 8) + '...',
+        ipAddress: ipAddress.includes('::') ? ipAddress.substring(0, 7) + '...' : ipAddress.split('.').slice(0, 2).join('.') + '...'
+      }
     });
     
   } catch (error) {
@@ -795,7 +826,7 @@ app.get('/api/admin/devices', async (req, res) => {
     
     // Apply filters
     if (search) {
-      query = query.or(`device_id.ilike.%${search}%,subscriptions.access_code.ilike.%${search}%`);
+      query = query.or(`device_id.ilike.%${search}%,subscriptions.access_code.ilike.%${search}%,ip_address.ilike.%${search}%`);
     }
     
     if (subscription) {
@@ -1252,10 +1283,76 @@ app.delete('/api/admin/subscriptions/:id', async (req, res) => {
   }
 });
 
-// Get devices (admin endpoint) - memperbaiki autentikasi
+// Migrate existing device records - buat endpoint untuk administrator
+app.post('/api/admin/migrate-devices', async (req, res) => {
+  try {
+    const adminToken = req.query.adminToken || (req.headers.authorization && req.headers.authorization.split(' ')[1]);
+    
+    if (!adminToken || adminToken !== process.env.ADMIN_TOKEN) {
+      return res.status(401).json({ message: 'Unauthorized' });
+    }
+    
+    // Ambil semua device yang belum memiliki IP
+    const { data: devices, error } = await supabase
+      .from('devices')
+      .select('*')
+      .is('ip_address', null);
+    
+    if (error) {
+      throw new Error('Failed to fetch devices');
+    }
+    
+    console.log(`Found ${devices.length} devices without IP address`);
+    
+    // Update schema jika belum memiliki kolom ip_address dan first_seen
+    try {
+      // Periksa apakah kolom sudah ada
+      const { error: columnCheckError } = await supabase
+        .rpc('column_exists', { 
+          table_name: 'devices', 
+          column_name: 'ip_address' 
+        });
+      
+      if (columnCheckError) {
+        // Kolom belum ada, tambahkan
+        await supabase.query(`
+          ALTER TABLE devices 
+          ADD COLUMN IF NOT EXISTS ip_address varchar,
+          ADD COLUMN IF NOT EXISTS first_seen timestamptz DEFAULT NOW()
+        `);
+        console.log('Added ip_address and first_seen columns to devices table');
+      }
+    } catch (schemaError) {
+      console.log('Error checking schema, continuing anyway:', schemaError);
+    }
+    
+    // Update setiap device
+    for (const device of devices) {
+      await supabase
+        .from('devices')
+        .update({
+          ip_address: 'unknown',
+          first_seen: device.last_active || new Date().toISOString()
+        })
+        .eq('id', device.id);
+    }
+    
+    return res.json({
+      success: true,
+      migratedCount: devices.length
+    });
+  } catch (error) {
+    console.error('Error during device migration:', error);
+    res.status(500).json({ 
+      message: 'Error migrating devices', 
+      error: error.message 
+    });
+  }
+});
+
+// Get devices with more details (admin endpoint)
 app.get('/api/admin/devices', async (req, res) => {
   try {
-    // Verifikasi admin token dari header atau query parameter
     const adminToken = req.query.adminToken || (req.headers.authorization && req.headers.authorization.split(' ')[1]);
     
     if (!adminToken || adminToken !== process.env.ADMIN_TOKEN) {
@@ -1267,14 +1364,14 @@ app.get('/api/admin/devices', async (req, res) => {
     const search = req.query.search || '';
     const subscription = req.query.subscription || '';
     
-    // Start building query
+    // Start building query with IP address field
     let query = supabase
       .from('devices')
       .select('*, subscriptions!inner(*)', { count: 'exact' });
     
     // Apply filters
     if (search) {
-      query = query.or(`device_id.ilike.%${search}%,subscriptions.access_code.ilike.%${search}%`);
+      query = query.or(`device_id.ilike.%${search}%,subscriptions.access_code.ilike.%${search}%,ip_address.ilike.%${search}%`);
     }
     
     if (subscription) {
@@ -1305,131 +1402,17 @@ app.get('/api/admin/devices', async (req, res) => {
   }
 });
 
-// Delete device (admin endpoint) - memperbaiki autentikasi
-app.delete('/api/admin/devices/:id', async (req, res) => {
-  try {
-    // Verifikasi admin token dari header atau query parameter
-    const adminToken = req.query.adminToken || (req.headers.authorization && req.headers.authorization.split(' ')[1]);
-    
-    if (!adminToken || adminToken !== process.env.ADMIN_TOKEN) {
-      return res.status(401).json({ message: 'Unauthorized' });
-    }
-    
-    const { id } = req.params;
-    
-    const { error } = await supabase
-      .from('devices')
-      .delete()
-      .eq('id', id);
-    
-    if (error) {
-      throw error;
-    }
-    
-    return res.json({ success: true });
-    
-  } catch (error) {
-    console.error('Error deleting device:', error);
-    res.status(500).json({ message: 'Error deleting device', error: error.message });
+// Route untuk halaman devices management
+app.get('/admin/devices/:adminToken', (req, res) => {
+  const { adminToken } = req.params;
+  
+  // Cek apakah token admin valid
+  if (adminToken !== process.env.ADMIN_TOKEN) {
+    return res.status(403).send('Akses ditolak. Token admin tidak valid.');
   }
-});
-
-// Get stats (admin endpoint) - memperbaiki autentikasi
-app.get('/api/admin/stats', async (req, res) => {
-  try {
-    // Verifikasi admin token dari header atau query parameter
-    const adminToken = req.query.adminToken || (req.headers.authorization && req.headers.authorization.split(' ')[1]);
-    
-    if (!adminToken || adminToken !== process.env.ADMIN_TOKEN) {
-      return res.status(401).json({ message: 'Unauthorized' });
-    }
-    
-    const now = new Date().toISOString();
-    const threedays = new Date();
-    threedays.setDate(threedays.getDate() + 3);
-    
-    // Get total subscriptions
-    const { count: totalSubscriptions } = await supabase
-      .from('subscriptions')
-      .select('*', { count: 'exact', head: true });
-    
-    // Get active subscriptions
-    const { count: activeSubscriptions } = await supabase
-      .from('subscriptions')
-      .select('*', { count: 'exact', head: true })
-      .gt('expiry_date', now);
-    
-    // Get expiring soon
-    const { count: expiringSoon } = await supabase
-      .from('subscriptions')
-      .select('*', { count: 'exact', head: true })
-      .gt('expiry_date', now)
-      .lt('expiry_date', threedays.toISOString());
-    
-    // Get total devices
-    const { count: totalDevices } = await supabase
-      .from('devices')
-      .select('*', { count: 'exact', head: true });
-    
-    // Get subscription type breakdown
-    const { data: subscriptionTypes } = await supabase
-      .from('subscriptions')
-      .select('type')
-      .gt('expiry_date', now);
-    
-    const typeCount = {
-      Basic: 0,
-      Premium: 0,
-      Ultimate: 0
-    };
-    
-    subscriptionTypes.forEach(sub => {
-      if (typeCount[sub.type] !== undefined) {
-        typeCount[sub.type]++;
-      }
-    });
-    
-    // Get new subscriptions per month (last 6 months)
-    const sixMonthsAgo = new Date();
-    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-    
-    const { data: newSubscriptions } = await supabase
-      .from('subscriptions')
-      .select('created_at')
-      .gte('created_at', sixMonthsAgo.toISOString());
-    
-    const monthlySignups = {};
-    
-    // Initialize all months
-    for (let i = 0; i < 6; i++) {
-      const date = new Date();
-      date.setMonth(date.getMonth() - i);
-      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-      monthlySignups[monthKey] = 0;
-    }
-    
-    // Count signups by month
-    newSubscriptions.forEach(sub => {
-      const date = new Date(sub.created_at);
-      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-      if (monthlySignups[monthKey] !== undefined) {
-        monthlySignups[monthKey]++;
-      }
-    });
-    
-    return res.json({
-      totalSubscriptions,
-      activeSubscriptions,
-      expiringSoon,
-      totalDevices,
-      subscriptionTypes: typeCount,
-      monthlySignups
-    });
-    
-  } catch (error) {
-    console.error('Error fetching stats:', error);
-    res.status(500).json({ message: 'Error fetching stats' });
-  }
+  
+  // Kirim halaman admin devices
+  res.sendFile(path.join(__dirname, 'public', 'admin', 'devices.html'));
 });
 
 // Start server

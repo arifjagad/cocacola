@@ -121,6 +121,15 @@ function updateSubscriptionInfo(data) {
     expiryDate.classList.remove('text-green-700');
     expiryDate.classList.add('text-purple-700');
   }
+  
+  // Tambahkan informasi IP address jika tersedia
+  if (data.deviceInfo && data.deviceInfo.ipAddress) {
+    // Perbarui element yang menampilkan device ID
+    const deviceIdEl = document.getElementById('device-id');
+    if (deviceIdEl) {
+      deviceIdEl.textContent = `${data.deviceInfo.deviceId} (${data.deviceInfo.ipAddress})`;
+    }
+  }
 }
 
 // Show subscription error

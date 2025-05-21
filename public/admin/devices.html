@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Devices - Coca-Cola Code Claimer Admin</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-gray-100 min-h-screen">
+  <div id="dashboard-container">
+    <div class="container mx-auto px-4 py-8">
+      <div class="flex justify-between items-center mb-8">
+        <div class="flex items-center">
+          <div class="bg-red-600 p-2 rounded-full mr-3">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-white" viewBox="0 0 20 20" fill="currentColor">
+              <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z" />
+            </svg>
+          </div>
+          <h1 class="text-2xl font-bold">Device Management</h1>
+        </div>
+        <div>
+          <a href="#" id="back-to-dashboard" class="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700 transition mr-2">
+            <i class="fas fa-arrow-left mr-2"></i>Back to Dashboard
+          </a>
+          <a href="#" id="refresh-devices" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition">
+            <i class="fas fa-sync-alt mr-2"></i>Refresh
+          </a>
+        </div>
+      </div>
+      
+      <!-- Search and Filter Controls -->
+      <div class="bg-white rounded-lg shadow p-4 mb-6">
+        <div class="flex flex-wrap gap-4">
+          <div class="flex-1 min-w-[200px]">
+            <label class="block text-sm font-medium text-gray-700 mb-1">Search</label>
+            <input type="text" id="search-input" class="w-full px-3 py-2 border border-gray-300 rounded-md" placeholder="Search by device ID, IP or code">
+          </div>
+          <div class="w-full md:w-auto">
+            <label class="block text-sm font-medium text-gray-700 mb-1">Subscription Code</label>
+            <input type="text" id="subscription-filter" class="w-full px-3 py-2 border border-gray-300 rounded-md" placeholder="Filter by code">
+          </div>
+          <div class="flex items-end">
+            <button id="apply-filters" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition">
+              Apply Filters
+            </button>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Devices Table -->
+      <div class="overflow-x-auto bg-white rounded-lg shadow">
+        <table class="min-w-full divide-y divide-gray-200">
+          <thead>
+            <tr>
+              <th class="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Device ID</th>
+              <th class="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">IP Address</th>
+              <th class="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Subscription</th>
+              <th class="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
+              <th class="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">First Seen</th>
+              <th class="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Active</th>
+              <th class="px-6 py-3 bg-gray-50 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+            </tr>
+          </thead>
+          <tbody class="bg-white divide-y divide-gray-200" id="devices-table-body">
+            <tr>
+              <td colspan="7" class="px-6 py-4 text-center text-sm text-gray-500">Loading devices...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      
+      <!-- Pagination -->
+      <div class="flex justify-between items-center mt-4">
+        <div>
+          <span class="text-sm text-gray-700">Showing <span id="device-range">1-10</span> of <span id="device-total">0</span> devices</span>
+        </div>
+        <div class="flex space-x-2">
+          <button id="prev-page" class="px-3 py-1 border border-gray-300 rounded-md bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
+            Previous
+          </button>
+          <button id="next-page" class="px-3 py-1 border border-gray-300 rounded-md bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
+            Next
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    // Get admin token from URL
+    const pathParts = window.location.pathname.split('/');
+    const adminToken = pathParts[pathParts.length - 1]; // Ambil token dari URL path
+    
+    let currentPage = 1;
+    let pageSize = 10;
+    let totalDevices = 0;
+    let searchTerm = '';
+    let subscriptionFilter = '';
+    
+    // Document loaded event
+    document.addEventListener('DOMContentLoaded', function() {
+      // Load devices immediately
+      loadDevices();
+      
+      // Set up event listeners
+      document.getElementById('refresh-devices').addEventListener('click', function(e) {
+        e.preventDefault();
+        loadDevices();
+      });
+      
+      document.getElementById('back-to-dashboard').addEventListener('click', function(e) {
+        e.preventDefault();
+        window.location.href = `/admin/${adminToken}`;
+      });
+      
+      document.getElementById('apply-filters').addEventListener('click', function() {
+        searchTerm = document.getElementById('search-input').value;
+        subscriptionFilter = document.getElementById('subscription-filter').value;
+        currentPage = 1; // Reset to first page
+        loadDevices();
+      });
+      
+      document.getElementById('prev-page').addEventListener('click', () => changePage(-1));
+      document.getElementById('next-page').addEventListener('click', () => changePage(1));
+      
+      // Tambahkan event listener untuk tombol Enter pada filter
+      document.getElementById('search-input').addEventListener('keyup', function(e) {
+        if (e.key === 'Enter') {
+          document.getElementById('apply-filters').click();
+        }
+      });
+      
+      document.getElementById('subscription-filter').addEventListener('keyup', function(e) {
+        if (e.key === 'Enter') {
+          document.getElementById('apply-filters').click();
+        }
+      });
+      
+      // Jalankan migrasi database untuk devices
+      migrateDevices();
+    });
+    
+    // Load devices
+    async function loadDevices() {
+      try {
+        const url = new URL(`/api/admin/devices`, window.location.origin);
+        url.searchParams.append('adminToken', adminToken);
+        url.searchParams.append('page', currentPage);
+        url.searchParams.append('pageSize', pageSize);
+        
+        if (searchTerm) {
+          url.searchParams.append('search', searchTerm);
+        }
+        
+        if (subscriptionFilter) {
+          url.searchParams.append('subscription', subscriptionFilter);
+        }
+        
+        const response = await fetch(url.toString());
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        const devices = data.devices;
+        totalDevices = data.total;
+        
+        renderDevicesTable(devices);
+        updatePagination();
+      } catch (error) {
+        console.error('Error loading devices:', error);
+        document.getElementById('devices-table-body').innerHTML = `
+          <tr>
+            <td colspan="7" class="px-6 py-4 text-center text-sm text-red-500">Error loading devices: ${error.message}</td>
+          </tr>
+        `;
+      }
+    }
+    
+    // Render devices table
+    function renderDevicesTable(devices) {
+      const tableBody = document.getElementById('devices-table-body');
+      
+      if (!devices || devices.length === 0) {
+        tableBody.innerHTML = `
+          <tr>
+            <td colspan="7" class="px-6 py-4 text-center text-sm text-gray-500">No devices found</td>
+          </tr>
+        `;
+        return;
+      }
+      
+      tableBody.innerHTML = devices.map(device => {
+        return `
+          <tr>
+            <td class="px-6 py-4 whitespace-nowrap">
+              <div class="text-sm text-gray-900 font-mono">${device.device_id}</div>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap">
+              <div class="text-sm text-gray-900 font-mono">${device.ip_address || 'Unknown'}</div>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap">
+              <div class="flex items-center">
+                <div class="font-medium text-gray-900">${device.subscriptions?.access_code || 'N/A'}</div>
+              </div>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap">
+              <div class="text-sm text-gray-900">${device.subscriptions?.customer_name || 'N/A'}</div>
+              <div class="text-sm text-gray-500">${device.subscriptions?.type || 'N/A'}</div>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+              ${formatDate(device.first_seen)}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+              ${formatDate(device.last_active)}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+              <button onclick="deleteDevice('${device.id}')" class="text-red-600 hover:text-red-900">Delete</button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+    
+    // Format date
+    function formatDate(dateString) {
+      if (!dateString) return 'N/A';
+      const options = { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' };
+      return new Date(dateString).toLocaleDateString('id-ID', options);
+    }
+    
+    // Update pagination
+    function updatePagination() {
+      const start = (currentPage - 1) * pageSize + 1;
+      const end = Math.min(currentPage * pageSize, totalDevices);
+      
+      document.getElementById('device-range').textContent = totalDevices === 0 ? '0-0' : `${start}-${end}`;
+      document.getElementById('device-total').textContent = totalDevices;
+      
+      // Update buttons state
+      document.getElementById('prev-page').disabled = currentPage === 1;
+      document.getElementById('next-page').disabled = end >= totalDevices;
+    }
+    
+    // Change page
+    function changePage(delta) {
+      const newPage = currentPage + delta;
+      
+      if (newPage < 1) return;
+      
+      const maxPages = Math.ceil(totalDevices / pageSize);
+      if (newPage > maxPages) return;
+      
+      currentPage = newPage;
+      loadDevices();
+    }
+    
+    // Delete device
+    window.deleteDevice = async function(id) {
+      if (!confirm('Are you sure you want to delete this device? This will allow the user to use another device.')) {
+        return;
+      }
+      
+      try {
+        const response = await fetch(`/api/admin/devices/${id}?adminToken=${adminToken}`, {
+          method: 'DELETE'
+        });
+        
+        if (!response.ok) {
+          throw new Error('Failed to delete device');
+        }
+        
+        // Reload devices
+        loadDevices();
+      } catch (error) {
+        console.error('Error deleting device:', error);
+        alert('Error: ' + error.message);
+      }
+    };
+    
+    // Migrate devices
+    async function migrateDevices() {
+      try {
+        const response = await fetch(`/api/admin/migrate-devices?adminToken=${adminToken}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const result = await response.json();
+        console.log(`Migration completed: ${result.migratedCount} devices updated`);
+      } catch (error) {
+        console.error('Error during migration:', error);
+      }
+    }
+  </script>
+</body>
+</html>

@@ -10,6 +10,7 @@
 <body class="bg-gray-100 min-h-screen">
   <div id="dashboard-container">
     <div class="container mx-auto px-4 py-8">
+      <!-- Di dalam dashboard-container, tambahkan menu navigasi -->
       <div class="flex justify-between items-center mb-8">
         <div class="flex items-center">
           <div class="bg-red-600 p-2 rounded-full mr-3">
@@ -19,7 +20,10 @@
           </div>
           <h1 class="text-2xl font-bold">Admin Dashboard</h1>
         </div>
-        <div>
+        <div class="flex space-x-2">
+          <a href="#" id="device-management-button" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition">
+            <i class="fas fa-mobile-alt mr-2"></i>Device Management
+          </a>
           <a href="#" id="new-subscription-button" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition">
             <i class="fas fa-plus mr-2"></i>New Subscription
           </a>
@@ -178,6 +182,9 @@
       
       // Set up event listeners
       document.getElementById('new-subscription-button').addEventListener('click', openNewSubscriptionModal);
+      document.getElementById('device-management-button').addEventListener('click', function() {
+        window.location.href = `/admin/devices/${adminToken}`;
+      });
       document.getElementById('close-modal').addEventListener('click', closeModal);
       document.getElementById('cancel-subscription').addEventListener('click', closeModal);
       document.getElementById('generate-code').addEventListener('click', generateRandomCode);
