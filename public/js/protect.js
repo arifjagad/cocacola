@@ -10,13 +10,20 @@ document.addEventListener('DOMContentLoaded', function() {
   const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
   
   if (!isMobileDevice) {
-    // Untuk desktop, konfigurasikan proteksi tetapi izinkan klik kanan
+    // Untuk desktop, konfigurasikan proteksi termasuk pencegahan klik kanan
     
     // Disable selection for desktop
     document.body.style.userSelect = 'none';
     document.body.style.webkitUserSelect = 'none';
     document.body.style.msUserSelect = 'none';
     document.body.style.mozUserSelect = 'none';
+    
+    // Mencegah klik kanan HANYA pada desktop
+    document.addEventListener('contextmenu', event => {
+      event.preventDefault();
+      alert('Klik kanan dinonaktifkan pada halaman ini.');
+      return false;
+    }, false);
     
     // Disable common keyboard shortcuts for desktops
     document.addEventListener('keydown', function(e) {
@@ -32,7 +39,7 @@ document.addEventListener('DOMContentLoaded', function() {
       }
     });
   } else {
-    // Untuk mobile, biarkan selection text berfungsi
+    // Untuk mobile, biarkan selection text dan klik kanan berfungsi
     document.body.style.userSelect = 'text';
     document.body.style.webkitUserSelect = 'text';
     document.body.style.msUserSelect = 'text';
