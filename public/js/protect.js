@@ -1,5 +1,52 @@
 // Script untuk melindungi halaman dari inspect element dan download
 
+/**
+ * Protection utilities for Coca-Cola Code Claimer
+ * Allows right-click on mobile devices but disables it on desktop
+ */
+
+document.addEventListener('DOMContentLoaded', function() {
+  // Deteksi perangkat mobile menggunakan user agent
+  const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  
+  if (!isMobileDevice) {
+    // Hanya terapkan proteksi lebih lanjut pada perangkat desktop
+    
+    // Disable selection for desktop
+    document.body.style.userSelect = 'none';
+    document.body.style.webkitUserSelect = 'none';
+    document.body.style.msUserSelect = 'none';
+    document.body.style.mozUserSelect = 'none';
+    
+    // Disable common keyboard shortcuts for desktops
+    document.addEventListener('keydown', function(e) {
+      // Check for Ctrl+S, Ctrl+U, F12, Ctrl+Shift+I
+      if (
+        (e.ctrlKey && e.key === 's') || 
+        (e.ctrlKey && e.key === 'u') || 
+        e.key === 'F12' || 
+        (e.ctrlKey && e.shiftKey && e.key === 'i')
+      ) {
+        e.preventDefault();
+        return false;
+      }
+    });
+  } else {
+    // Untuk mobile, biarkan selection text berfungsi
+    document.body.style.userSelect = 'text';
+    document.body.style.webkitUserSelect = 'text';
+    document.body.style.msUserSelect = 'text';
+    document.body.style.mozUserSelect = 'text';
+    
+    console.log("Mobile device detected - context menu enabled");
+  }
+  
+  // Tambahkan class untuk menandai bahwa ini adalah perangkat mobile
+  if (isMobileDevice) {
+    document.body.classList.add('is-mobile-device');
+  }
+});
+
 // Mencegah klik kanan
 document.addEventListener('contextmenu', event => {
   event.preventDefault();

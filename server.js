@@ -219,7 +219,7 @@ app.post('/api/claim', async (req, res) => {
     };
 
     // Try to claim with up to maxAttempts
-    const maxAttempts = 100;
+    const maxAttempts = 10;
     let attemptCount = 0;
     let success = false;
     let finalResult = null;

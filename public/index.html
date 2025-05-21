@@ -88,8 +88,19 @@
       100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
     }
   </style>
+  <script>
+    // Deteksi apakah pengguna menggunakan perangkat mobile
+    const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    
+    // Fungsi untuk menangani klik kanan berdasarkan jenis perangkat
+    function handleContextMenu(event) {
+      // Jika perangkat mobile, ijinkan klik kanan (return true)
+      // Jika desktop, cegah klik kanan (return false)
+      return isMobileDevice;
+    }
+  </script>
 </head>
-<body class="bg-gray-100 min-h-screen" oncontextmenu="return false;">
+<body class="bg-gray-100 min-h-screen" oncontextmenu="return handleContextMenu(event);">
   <header class="bg-red-600 text-white shadow-lg">
     <div class="container mx-auto px-4 py-4 md:py-6 mobile-container">
       <div class="flex justify-between items-center">

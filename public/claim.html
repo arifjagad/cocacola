@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="id">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -68,8 +68,19 @@
       100% { transform: scale(1); }
     }
   </style>
+  <script>
+    // Deteksi apakah pengguna menggunakan perangkat mobile
+    const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    
+    // Fungsi untuk menangani klik kanan berdasarkan jenis perangkat
+    function handleContextMenu(event) {
+      // Jika perangkat mobile, ijinkan klik kanan (return true)
+      // Jika desktop, cegah klik kanan (return false)
+      return isMobileDevice;
+    }
+  </script>
 </head>
-<body class="bg-gray-100 min-h-screen" oncontextmenu="return false;">
+<body class="bg-gray-100 min-h-screen" oncontextmenu="return handleContextMenu(event);">
   <div class="container mx-auto p-4 max-w-md">
     <!-- Header with logo -->
     <div class="flex justify-center mb-6 mt-4">

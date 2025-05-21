@@ -397,6 +397,19 @@ document.addEventListener('DOMContentLoaded', function() {
   const startButton = document.getElementById('start-button');
   const linkInput = document.getElementById('coca-cola-link');
   
+  // Deteksi apakah perangkat mobile
+  const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  
+  // Jika mobile, tambahkan class dan atur ulang event listener
+  if (isMobileDevice) {
+    document.body.classList.add('is-mobile-device');
+    
+    // Override oncontextmenu attribute jika ada
+    document.body.oncontextmenu = function() { return true; };
+    
+    console.log("Mobile device detected in claim.js - context menu enabled");
+  }
+  
   // Click event for the start button
   startButton.addEventListener('click', async function() {
     try {
