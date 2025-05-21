@@ -74,7 +74,15 @@ function showToast(message, type = 'info') {
 async function extractToken(cocaColaLink) {
   try {
     const tokenStatus = document.getElementById('token-status');
+    const extractionAttempt = document.getElementById('extraction-attempt');
     tokenStatus.classList.remove('hidden');
+    
+    // Start a counter to show how long we've been trying
+    let seconds = 0;
+    const extractionTimer = setInterval(() => {
+      seconds++;
+      extractionAttempt.textContent = `Percobaan sedang berlangsung selama ${seconds} detik...`;
+    }, 1000);
     
     const response = await fetch('/api/extract-token', {
       method: 'POST',
@@ -84,16 +92,19 @@ async function extractToken(cocaColaLink) {
       body: JSON.stringify({ cocaColaLink })
     });
     
+    // Clear the timer
+    clearInterval(extractionTimer);
+    
     if (!response.ok) {
       const errorData = await response.json();
-      throw new Error(errorData.message || `Failed to extract token: ${response.status}`);
+      throw new Error(errorData.message || `Gagal mengambil kode: ${response.status}`);
     }
     
     const data = await response.json();
     tokenStatus.classList.add('hidden');
     
     if (!data.success) {
-      throw new Error(data.message || 'Failed to extract authorization token');
+      throw new Error(data.message || 'Gagal mengambil kode akses dari link');
     }
     
     return data.token;
