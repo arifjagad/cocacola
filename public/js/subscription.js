@@ -14,83 +14,6 @@ async function initFingerprint() {
   }
 }
 
-// Fingerprinting function to gather device information
-async function generateDeviceFingerprint() {
-  // Collect basic browser and device information
-  const fingerprint = {
-    // Browser and platform info
-    userAgent: navigator.userAgent,
-    language: navigator.language,
-    platform: navigator.platform,
-    cookiesEnabled: navigator.cookieEnabled,
-    
-    // Screen properties
-    screenResolution: `${window.screen.width}x${window.screen.height}`,
-    colorDepth: window.screen.colorDepth,
-    
-    // Browser capabilities
-    touchPoints: navigator.maxTouchPoints || 0,
-    hardwareConcurrency: navigator.hardwareConcurrency || 'unknown',
-    deviceMemory: navigator.deviceMemory || 'unknown',
-    
-    // Timezone
-    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-    
-    // Browser and OS detection (simplified)
-    browser: detectBrowser(),
-    os: detectOS()
-  };
-  
-  // Collect canvas fingerprint if available
-  try {
-    const canvas = document.createElement('canvas');
-    const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
-    if (gl) {
-      // Get WebGL renderer information
-      const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
-      if (debugInfo) {
-        fingerprint.renderer = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL);
-        fingerprint.vendor = gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL);
-      }
-      
-      // Simple WebGL fingerprint
-      canvas.width = 256;
-      canvas.height = 128;
-      gl.clearColor(0.2, 0.3, 0.4, 1.0);
-      gl.clear(gl.COLOR_BUFFER_BIT);
-      const pixels = new Uint8Array(canvas.width * canvas.height * 4);
-      gl.readPixels(0, 0, canvas.width, canvas.height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
-      // Only use a small sample for the fingerprint to reduce size
-      fingerprint.glSample = Array.from(pixels.slice(0, 64)).join(',');
-    }
-  } catch (e) {
-    console.log('WebGL fingerprinting failed:', e);
-  }
-  
-  return fingerprint;
-  
-  // Helper functions to detect browser and OS
-  function detectBrowser() {
-    const ua = navigator.userAgent;
-    if (ua.includes('Firefox/')) return 'Firefox';
-    if (ua.includes('Edge/') || ua.includes('Edg/')) return 'Edge';
-    if (ua.includes('Chrome/')) return 'Chrome';
-    if (ua.includes('Safari/') && !ua.includes('Chrome/')) return 'Safari';
-    if (ua.includes('MSIE ') || ua.includes('Trident/')) return 'IE';
-    return 'Unknown';
-  }
-  
-  function detectOS() {
-    const ua = navigator.userAgent;
-    if (ua.includes('Windows')) return 'Windows';
-    if (ua.includes('Mac OS')) return 'MacOS';
-    if (ua.includes('Linux')) return 'Linux';
-    if (ua.includes('Android')) return 'Android';
-    if (ua.includes('iOS') || ua.includes('iPhone') || ua.includes('iPad')) return 'iOS';
-    return 'Unknown';
-  }
-}
-
 // Check if the current access code is valid and if the device limit has been reached
 async function checkSubscription() {
   try {
@@ -115,9 +38,6 @@ async function checkSubscription() {
     // Display device ID in the footer
     document.getElementById('device-id').textContent = deviceId.substring(0, 8) + '...';
     
-    // Generate fingerprint
-    const fingerprint = await generateDeviceFingerprint();
-    
     // Call the API to check subscription status
     const response = await fetch('/api/check-subscription', {
       method: 'POST',
@@ -126,8 +46,7 @@ async function checkSubscription() {
       },
       body: JSON.stringify({
         accessCode,
-        deviceId,
-        fingerprint
+        deviceId
       })
     });
     
