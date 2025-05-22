@@ -410,7 +410,7 @@ app.post('/api/claim', async (req, res) => {
     return res.json({
       success: false,
       status: 'MAX_ATTEMPTS',
-      message: 'Reached maximum number of attempts without success',
+      message: 'Sudah 10x coba namun belum berhasil, silakan coba lagi',
       attempts: attemptCount,
       result: finalResult
     });
