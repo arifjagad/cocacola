@@ -337,8 +337,8 @@ app.post('/api/claim', async (req, res) => {
       "User-Agent": "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Mobile Safari/537.36"
     };
 
-    // Try to claim with up to maxAttempts
-    const maxAttempts = 10; // Reduced to 10 attempts per code (total 30 for 3 codes)
+    // Try to claim with unlimited attempts until success or specific error
+    const maxAttempts = 999; // Set to a very high number effectively making it unlimited
     let attemptCount = 0;
     let success = false;
     let finalResult = null;
@@ -417,13 +417,19 @@ app.post('/api/claim', async (req, res) => {
         console.error(`Attempt ${attemptCount} failed:`, error);
         await new Promise(resolve => setTimeout(resolve, 3000)); // 3 second delay on error
       }
+      
+      // If we've tried a lot of times without success, add longer delays to prevent overloading
+      if (attemptCount % 20 === 0) {
+        console.log(`High attempt count (${attemptCount}), adding extra delay`);
+        await new Promise(resolve => setTimeout(resolve, 5000)); // Add extra 5s delay every 20 attempts
+      }
     }
     
-    // If we reached max attempts without success
+    // This should rarely happen since we have a very high maxAttempts
     return res.json({
       success: false,
       status: 'MAX_ATTEMPTS',
-      message: 'Sudah 10x coba namun belum berhasil, silakan coba lagi',
+      message: 'Mencapai batas maksimum percobaan tanpa keberhasilan',
       attempts: attemptCount,
       result: finalResult
     });

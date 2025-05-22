@@ -283,9 +283,9 @@
                 Proses Claim
               </h3>
               <ul class="text-sm text-gray-700 space-y-2 list-disc ml-5">
-                <li>Setiap kode akan <span class="font-medium">dicoba claim hingga 10 kali</span> dalam satu proses.</li>
-                <li>Jika muncul pesan "<span class="text-yellow-600 font-medium">Sudah 10x coba namun belum berhasil</span>", Anda bisa mencoba lagi dengan mengklik tombol "Mulai Claim".</li>
-                <li>Kode yang gagal bisa dicoba lagi beberapa kali karena kadang terjadi masalah pada server Coca-Cola.</li>
+                <li>Setiap kode akan <span class="font-medium">dicoba claim terus menerus</span> sampai berhasil atau gagal karena alasan khusus.</li>
+                <li>Sistem akan otomatis melakukan percobaan berulang-ulang hingga kode berhasil di-claim.</li>
+                <li>Kode yang gagal karena "sudah limit" atau "kode tidak valid" akan otomatis dihentikan.</li>
               </ul>
             </div>
             
@@ -338,10 +338,6 @@
                   <p class="font-medium text-red-600">Could not extract authorization token</p>
                   <p>Link Coca-Cola tidak valid atau sudah kedaluwarsa. Pastikan Anda memasukkan link yang benar dan masih aktif.</p>
                 </div>
-                <div>
-                  <p class="font-medium text-yellow-600">Sudah 10x coba namun belum berhasil</p>
-                  <p>Sistem sudah mencoba 10 kali percobaan namun belum berhasil. Klik "Mulai Claim" untuk mencoba lagi.</p>
-                </div>
               </div>
             </div>
             
@@ -356,8 +352,9 @@
               <ul class="text-sm text-gray-700 space-y-2 list-disc ml-5">
                 <li>Pastikan link Coca-Cola Anda baru dan aktif.</li>
                 <li>Masukkan hingga 3 kode sekaligus untuk menghemat waktu.</li>
-                <li>Jika gagal, coba lagi beberapa kali karena terkadang server Coca-Cola sibuk.</li>
+                <li>Proses claim bisa membutuhkan waktu yang bervariasi, terkadang berhasil setelah puluhan percobaan.</li>
                 <li>Kode yang berhasil akan menghasilkan voucher di akun Coca-Cola Anda.</li>
+                <li>Jika proses berjalan terlalu lama, Anda bisa refresh dan coba lagi.</li>
               </ul>
             </div>
           </div>

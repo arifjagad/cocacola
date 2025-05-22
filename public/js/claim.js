@@ -207,13 +207,19 @@ async function claimCode(packagingCode, authorization, codeIndex = 0, totalCodes
           // Update the progress counter
           attemptCounter.textContent = `Kode ${codeIndex + 1}/${totalCodes}: ${packagingCode} - Percobaan ke-${attemptNum}`;
           
-          // Calculate total progress across all codes:
-          // Each code gets 10 attempts, so for code index i, progress is (i * 10 + currentAttempt) / (totalCodes * 10)
-          const progressPercent = Math.min(
-            5 + ((codeIndex * 10 + attemptNum) / (totalCodes * 10) * 95), 
-            (codeIndex + 1) / totalCodes * 100
-          );
-          progressBar.style.width = `${progressPercent}%`;
+          // For unlimited attempts, use a pulsing animation on the progress bar after a certain point
+          if (attemptNum > 20) {
+            progressBar.classList.add('animate-pulse');
+            
+            // For visual feedback, cycle the progress bar between 30% and 95% 
+            // to indicate ongoing work but not falsely indicate completion
+            const cyclePosition = 30 + (attemptNum % 10) * 6.5; // Will cycle between ~30% and ~95%
+            progressBar.style.width = `${cyclePosition}%`;
+          } else {
+            // For early attempts, show increasing progress up to about 30%
+            const initialProgress = Math.min(5 + (attemptNum / 20) * 25, 30);
+            progressBar.style.width = `${initialProgress}%`;
+          }
         }
       } catch (e) {
         console.error('Error parsing SSE data:', e);
@@ -250,6 +256,15 @@ async function claimCode(packagingCode, authorization, codeIndex = 0, totalCodes
     if (document.getElementById(`realtime-status-${codeIndex}`)) {
       document.getElementById(`realtime-status-${codeIndex}`).remove();
     }
+    
+    // Remove pulsing animation from progress bar
+    progressBar.classList.remove('animate-pulse');
+    
+    // Update progress bar based on result
+    const progressPercent = result.success ? 
+      ((codeIndex + 1) / totalCodes) * 100 : 
+      ((codeIndex) / totalCodes) * 100 + (1 / totalCodes) * 30;
+    progressBar.style.width = `${progressPercent}%`;
     
     // Create result entry
     const logEntry = document.createElement('div');
@@ -295,7 +310,7 @@ async function claimCode(packagingCode, authorization, codeIndex = 0, totalCodes
             showToast(result.message, 'error');
           }
           break;
-        case 'MAX_ATTEMPTS':
+        case 'MAX_ATTEMPTS': // This should rarely occur now
           logEntry.className = 'p-2 mb-2 bg-yellow-100 text-yellow-800 rounded';
           logEntry.innerHTML = `<strong>Kode ${codeIndex + 1}: ${packagingCode} - ⚠️ ${result.message}</strong>`;
           if (codeIndex === totalCodes - 1 || totalCodes === 1) {
