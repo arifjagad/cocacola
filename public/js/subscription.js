@@ -24,6 +24,23 @@ function generateSimpleDeviceId() {
   return Math.abs(hash).toString(16) + Date.now().toString(36);
 }
 
+// Format tanggal ke format Indonesia (DD Bulan YYYY)
+function formatDateIndonesia(dateString) {
+  const date = new Date(dateString);
+  
+  // Array nama bulan dalam Bahasa Indonesia
+  const bulan = [
+    'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 
+    'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+  ];
+  
+  const tanggal = date.getDate();
+  const namaBulan = bulan[date.getMonth()];
+  const tahun = date.getFullYear();
+  
+  return `${tanggal} ${namaBulan} ${tahun}`;
+}
+
 // Function to check subscription status and update UI
 async function checkSubscription() {
   try {
@@ -71,8 +88,46 @@ async function checkSubscription() {
       throw new Error(data.message || 'Invalid subscription');
     }
     
-    // Update UI with subscription info
-    document.getElementById('expiry-date').innerText = `Berlaku hingga: ${new Date(data.expiryDate).toLocaleDateString('id-ID')}`;
+    // Update UI with subscription info berdasarkan subscription type
+    const subscriptionInfo = document.getElementById('subscription-info');
+    const subscriptionTitle = subscriptionInfo.querySelector('p.font-medium');
+    const expiryDateElement = document.getElementById('expiry-date');
+    
+    if (data.subscriptionType === 'Trial') {
+      // Untuk Trial, ubah warna ke biru dan tampilkan sebagai Trial Access
+      subscriptionInfo.classList.remove('bg-green-100', 'border-green-300');
+      subscriptionInfo.classList.add('bg-blue-100', 'border-blue-300');
+      
+      const icon = subscriptionInfo.querySelector('svg');
+      icon.classList.remove('text-green-600');
+      icon.classList.add('text-blue-600');
+      
+      subscriptionTitle.classList.remove('text-green-800');
+      subscriptionTitle.classList.add('text-blue-800');
+      subscriptionTitle.innerText = 'Trial Access';
+      
+      expiryDateElement.classList.remove('text-green-700');
+      expiryDateElement.classList.add('text-blue-700');
+    } else {
+      // Untuk Premium atau tipe lain, gunakan warna hijau dan Premium Access
+      subscriptionInfo.classList.remove('bg-blue-100', 'border-blue-300');
+      subscriptionInfo.classList.add('bg-green-100', 'border-green-300');
+      
+      const icon = subscriptionInfo.querySelector('svg');
+      icon.classList.remove('text-blue-600');
+      icon.classList.add('text-green-600');
+      
+      subscriptionTitle.classList.remove('text-blue-800');
+      subscriptionTitle.classList.add('text-green-800');
+      subscriptionTitle.innerText = 'Premium Access';
+      
+      expiryDateElement.classList.remove('text-blue-700');
+      expiryDateElement.classList.add('text-green-700');
+    }
+    
+    // Update expiry date text dengan format yang lebih manusiawi
+    const formattedDate = formatDateIndonesia(data.expiryDate);
+    expiryDateElement.innerText = `Berlaku hingga: ${formattedDate}`;
     
     // Update device count dan device limit (selalu tampilkan)
     document.getElementById('device-count').innerText = data.deviceCount;
