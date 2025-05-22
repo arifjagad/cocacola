@@ -73,28 +73,64 @@ app.post('/api/extract-token', async (req, res) => {
     
     console.log(`Starting token extraction for link: ${cocaColaLink}`);
     
-    // Launch Puppeteer
-    const browser = await puppeteer.launch({
+    // Konfigurasi Puppeteer yang lebih lengkap untuk lingkungan produksi
+    const launchOptions = {
       headless: "new",
-      args: ['--no-sandbox', '--disable-setuid-sandbox']
-    });
+      args: [
+        '--no-sandbox', 
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-accelerated-2d-canvas',
+        '--no-first-run',
+        '--no-zygote',
+        '--disable-gpu',
+        '--window-size=1280,720'
+      ],
+      timeout: 60000 // Tambahkan timeout yang lebih lama (60 detik)
+    };
+    
+    console.log('Launching browser with options:', JSON.stringify(launchOptions));
+    const browser = await puppeteer.launch(launchOptions);
     
     try {
       const page = await browser.newPage();
+      
+      // Set user agent untuk meniru browser mobile
+      await page.setUserAgent('Mozilla/5.0 (Linux; Android 11; SM-G998B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/94.0.4606.61 Mobile Safari/537.36');
+      
+      // Set viewport untuk meniru ukuran layar mobile
+      await page.setViewport({
+        width: 412,
+        height: 915,
+        deviceScaleFactor: 2.625,
+        isMobile: true,
+        hasTouch: true
+      });
+      
+      console.log('Setting up request interception');
       
       // Enable request interception to capture network requests
       await page.setRequestInterception(true);
       
       let authToken = null;
+      let requestsLogged = 0;
       
       // Listen for requests and capture the authorization token
       page.on('request', request => {
         const url = request.url();
         const headers = request.headers();
         
-        // Look for the userCoupons request
-        if (url.includes('userCoupons')) {
-          console.log('Found userCoupons request');
+        // Log setiap beberapa request untuk debugging
+        if (requestsLogged < 5 || requestsLogged % 20 === 0) {
+          console.log(`Request #${requestsLogged+1}: ${url.substring(0, 100)}...`);
+        }
+        requestsLogged++;
+        
+        // Look for the userCoupons request or any other API request
+        if (url.includes('userCoupons') || url.includes('grivy') || url.includes('redeem')) {
+          console.log('Found potential API request:', url);
+          console.log('Headers:', JSON.stringify(headers));
+          
           if (headers.authorization) {
             authToken = headers.authorization;
             console.log('Extracted authorization token');
@@ -103,9 +139,30 @@ app.post('/api/extract-token', async (req, res) => {
         request.continue();
       });
       
+      // Log semua respons untuk debugging
+      page.on('response', async (response) => {
+        const url = response.url();
+        if (url.includes('api') || url.includes('grivy')) {
+          console.log(`Response from ${url}: ${response.status()}`);
+          try {
+            const contentType = response.headers()['content-type'];
+            if (contentType && contentType.includes('application/json')) {
+              const data = await response.json();
+              console.log('Response data:', JSON.stringify(data).substring(0, 200) + '...');
+            }
+          } catch (e) {
+            console.log('Could not parse response as JSON');
+          }
+        }
+      });
+      
+      // Log console messages dari halaman
+      page.on('console', msg => console.log('PAGE LOG:', msg.text()));
+      
       // Set a timeout to ensure we don't hang indefinitely
       const timeout = setTimeout(async () => {
         if (!authToken) {
+          console.log('Timeout reached without finding token');
           await browser.close();
           res.status(408).json({ 
             success: false, 
@@ -113,44 +170,93 @@ app.post('/api/extract-token', async (req, res) => {
             message: 'Timed out while trying to extract token' 
           });
         }
-      }, 30000);
+      }, 40000); // Tambah timeout menjadi 40 detik
       
-      // Navigate to the page
-      await page.goto(cocaColaLink, { waitUntil: 'networkidle2', timeout: 25000 });
+      console.log(`Navigating to: ${cocaColaLink}`);
       
-      // Wait a bit for all requests to finish
-      await new Promise(resolve => setTimeout(resolve, 5000));
+      // Navigate to the page with longer timeout
+      await page.goto(cocaColaLink, { 
+        waitUntil: 'networkidle2', 
+        timeout: 35000  // 35 detik
+      });
+      
+      console.log('Page loaded, waiting for API calls');
+      
+      // Wait a bit longer for all requests to finish
+      await new Promise(resolve => setTimeout(resolve, 8000));
       
       clearTimeout(timeout);
       
       if (!authToken) {
-        // If we couldn't find the token in the initial load, try interacting with the page
-        await page.evaluate(() => {
-          // Click on elements that might trigger API calls
-          document.querySelectorAll('button').forEach(btn => btn.click());
-        });
+        // Coba klik tombol pada halaman untuk memicu request
+        console.log('Token not found initially, trying to interact with page');
         
-        // Wait a bit more for potential requests
-        await new Promise(resolve => setTimeout(resolve, 3000));
+        // Ambil screenshot untuk debugging
+        const screenshot = await page.screenshot({encoding: 'base64'});
+        console.log('Page screenshot (base64):', screenshot.substring(0, 100) + '...');
+        
+        // Tampilkan HTML halaman untuk debugging
+        const pageContent = await page.content();
+        console.log('Page HTML:', pageContent.substring(0, 500) + '...');
+        
+        try {
+          // Klik pada elemen yang mungkin memicu API calls
+          await page.evaluate(() => {
+            console.log('Clicking on buttons');
+            // Click on elements that might trigger API calls
+            document.querySelectorAll('button, a.btn, [role="button"], .clickable, .button').forEach(el => {
+              console.log('Clicking element:', el.outerHTML);
+              el.click();
+            });
+            
+            // Coba interaksi dengan elemen input
+            document.querySelectorAll('input').forEach(input => {
+              console.log('Focusing input:', input.outerHTML);
+              input.focus();
+              input.blur();
+            });
+          });
+          
+          // Wait for potential network activity
+          await new Promise(resolve => setTimeout(resolve, 5000));
+          
+          // Jika masih tidak ada token, coba scrolling halaman
+          if (!authToken) {
+            await page.evaluate(() => {
+              window.scrollTo(0, document.body.scrollHeight / 2);
+              setTimeout(() => {
+                window.scrollTo(0, document.body.scrollHeight);
+              }, 500);
+            });
+            
+            // Wait more
+            await new Promise(resolve => setTimeout(resolve, 3000));
+          }
+        } catch (interactionError) {
+          console.error('Error during page interaction:', interactionError);
+        }
       }
       
       await browser.close();
       
       if (!authToken) {
+        console.log('Failed to extract token after all attempts');
         return res.status(404).json({ 
           success: false, 
           error: 'Token not found', 
-          message: 'Could not extract authorization token from the link' 
+          message: 'Could not extract authorization token from the link. Pastikan link coca-cola valid dan belum kadaluarsa.' 
         });
       }
       
       // Return the token
+      console.log('Successfully extracted token');
       return res.json({ 
         success: true, 
         token: authToken 
       });
       
     } catch (error) {
+      console.error('Error during token extraction process:', error);
       await browser.close();
       throw error;
     }
