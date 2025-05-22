@@ -73,43 +73,6 @@ app.post('/api/extract-token', async (req, res) => {
     
     console.log(`Starting token extraction for link: ${cocaColaLink}`);
     
-    // Coba pendekatan API direct terlebih dahulu
-    try {
-      console.log("Trying direct API approach first...");
-      
-      const shareId = cocaColaLink.split('/s/')[1]?.split('?')[0]?.trim();
-      if (!shareId) {
-        throw new Error('Invalid Coca-Cola share ID');
-      }
-      
-      console.log(`Extracted share ID: ${shareId}`);
-      
-      // Langsung buat token dari shareId
-      // Format token: "Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJhdWQiOiIzIiwiaWF0IjoxNzIzMjU5MDgwLCJleHAiOjE3MjQxMjMwODAsInVpZCI6IjE1NjQwNTAiLCJzaWQiOiIxNTY0MDUwIiwiZGV2aWNlX2lkIjoiZW11bGF0b3IifQ.P4Q8pW8FSfCt_eUKTovDvRlkC0XV_-wzp4KcVfsS3i-GL5pP-JlvEWEk3wUWl3GvRwRUe2N9Y-D-gQiV6Qx_XKev41xOzSPEfh7pDE7zLLak_DIXh7HzYqnLM_UTO9EyNGK70-sTbQwqJAaZ_XD6bGD02VRrDmN_LTSC9q10C4k"
-      
-      // Mencoba ekstrak share code dari URL
-      let generatedToken = '';
-      
-      // Pendekatan 1: Gunakan ID untuk membuat token yang terlihat valid
-      const randomToken = generateRandomToken(shareId);
-      generatedToken = `Bearer ${randomToken}`;
-      
-      console.log(`Generated token: ${generatedToken}`);
-      
-      // Return the generated token
-      return res.json({ 
-        success: true, 
-        token: generatedToken,
-        method: "direct"
-      });
-    }
-    catch (directError) {
-      console.log("Direct approach failed, falling back to Puppeteer:", directError.message);
-    }
-    
-    // Jika pendekatan direct gagal, gunakan Puppeteer sebagai fallback
-    console.log("Fallback to Puppeteer approach...");
-    
     // Konfigurasi Puppeteer yang lebih lengkap untuk lingkungan produksi
     const launchOptions = {
       headless: "new",
@@ -121,52 +84,29 @@ app.post('/api/extract-token', async (req, res) => {
         '--no-first-run',
         '--no-zygote',
         '--disable-gpu',
-        '--disable-features=IsolateOrigins,site-per-process',
+        '--disable-software-rasterizer',
+        '--disable-background-timer-throttling',
+        '--disable-backgrounding-occluded-windows',
+        '--disable-renderer-backgrounding',
+        '--disable-features=TranslateUI',
+        '--disable-extensions',
+        '--disable-plugins',
         '--disable-web-security',
-        '--window-size=1280,720'
+        '--disable-features=VizDisplayCompositor',
+        '--memory-pressure-off',
+        '--max_old_space_size=256', // Batasi Node.js memory
+        '--disable-ipc-flooding-protection',
+        '--window-size=800,600' // Ukuran window lebih kecil
       ],
-      timeout: 120000 // Tambahkan timeout yang lebih lama (2 menit)
+      timeout: 90000, // Timeout lebih lama untuk server lambat
+      pipe: true // Gunakan pipe instead of WebSocket
     };
-    
-    // Tambahkan executablePath untuk server yang sudah memiliki Chrome
-    try {
-      // Coba deteksi Chrome path di server
-      const { execSync } = require('child_process');
-      const chromePath = execSync('which google-chrome').toString().trim();
-      if (chromePath) {
-        console.log(`Chrome found at: ${chromePath}`);
-        launchOptions.executablePath = chromePath;
-      }
-    } catch (e) {
-      console.log("Chrome not found in standard path, using bundled Chromium");
-    }
     
     console.log('Launching browser with options:', JSON.stringify(launchOptions));
     const browser = await puppeteer.launch(launchOptions);
     
     try {
       const page = await browser.newPage();
-      
-      // Bypass bot detection
-      await page.evaluateOnNewDocument(() => {
-        // Menggunakan Navigator.webdriver
-        Object.defineProperty(navigator, 'webdriver', {
-          get: () => false
-        });
-        
-        // Menggunakan User-Agent
-        window.navigator.chrome = {
-          runtime: {}
-        };
-        
-        // Menggunakan Permission API
-        const originalQuery = window.navigator.permissions.query;
-        window.navigator.permissions.query = (parameters) => (
-          parameters.name === 'notifications' ?
-            Promise.resolve({ state: Notification.permission }) :
-            originalQuery(parameters)
-        );
-      });
       
       // Set user agent untuk meniru browser mobile
       await page.setUserAgent('Mozilla/5.0 (Linux; Android 11; SM-G998B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/94.0.4606.61 Mobile Safari/537.36');
@@ -178,24 +118,6 @@ app.post('/api/extract-token', async (req, res) => {
         deviceScaleFactor: 2.625,
         isMobile: true,
         hasTouch: true
-      });
-
-      // Menambahkan extra header untuk terlihat lebih natural
-      await page.setExtraHTTPHeaders({
-        'Accept-Language': 'id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7',
-        'Cache-Control': 'no-cache',
-        'Pragma': 'no-cache',
-        'Sec-Ch-Ua': '"Chromium";v="92", " Not A;Brand";v="99", "Google Chrome";v="92"',
-        'Sec-Ch-Ua-Mobile': '?1',
-        'Upgrade-Insecure-Requests': '1',
-      });
-      
-      // Set cookies if needed
-      await page.setCookie({
-        name: 'cookieConsent',
-        value: 'true',
-        domain: 'ayo.coca-cola.co.id',
-        path: '/',
       });
       
       console.log('Setting up request interception');
@@ -218,7 +140,7 @@ app.post('/api/extract-token', async (req, res) => {
         requestsLogged++;
         
         // Look for the userCoupons request or any other API request
-        if (url.includes('userCoupons') || url.includes('grivy') || url.includes('redeem') || url.includes('api')) {
+        if (url.includes('userCoupons') || url.includes('grivy') || url.includes('redeem')) {
           console.log('Found potential API request:', url);
           console.log('Headers:', JSON.stringify(headers));
           
@@ -255,140 +177,95 @@ app.post('/api/extract-token', async (req, res) => {
         if (!authToken) {
           console.log('Timeout reached without finding token');
           await browser.close();
-          
-          // Generate a random token as last resort if timeout occurs
-          const shareId = cocaColaLink.split('/s/')[1]?.split('?')[0]?.trim() || 'fallback';
-          const randomToken = generateRandomToken(shareId);
-          const generatedToken = `Bearer ${randomToken}`;
-          
-          console.log(`Generated fallback token after timeout: ${generatedToken}`);
-          
-          return res.json({ 
-            success: true, 
-            token: generatedToken,
-            method: "fallback"
+          res.status(408).json({ 
+            success: false, 
+            error: 'Timeout', 
+            message: 'Timed out while trying to extract token' 
           });
         }
-      }, 60000); // 60 detik timeout
+      }, 40000); // Tambah timeout menjadi 40 detik
       
       console.log(`Navigating to: ${cocaColaLink}`);
       
       // Navigate to the page with longer timeout
       await page.goto(cocaColaLink, { 
         waitUntil: 'networkidle2', 
-        timeout: 45000  // 45 detik
+        timeout: 35000  // 35 detik
       });
       
       console.log('Page loaded, waiting for API calls');
       
-      // Wait longer for all requests to finish
-      await new Promise(resolve => setTimeout(resolve, 10000));
+      // Wait a bit longer for all requests to finish
+      await new Promise(resolve => setTimeout(resolve, 8000));
       
-      // Mencoba berbagai interaksi jika token belum ditemukan
+      clearTimeout(timeout);
+      
       if (!authToken) {
-        console.log('Token not found after initial load, trying to interact with the page');
+        // Coba klik tombol pada halaman untuk memicu request
+        console.log('Token not found initially, trying to interact with page');
         
-        await page.evaluate(() => {
-          // Scroll down slowly
-          window.scrollTo(0, document.body.scrollHeight / 3);
-          setTimeout(() => {
-            window.scrollTo(0, document.body.scrollHeight * 2/3);
-            setTimeout(() => {
-              window.scrollTo(0, document.body.scrollHeight);
-            }, 500);
-          }, 500);
-        });
+        // Ambil screenshot untuk debugging
+        const screenshot = await page.screenshot({encoding: 'base64'});
+        console.log('Page screenshot (base64):', screenshot.substring(0, 100) + '...');
         
-        // Wait a bit after scrolling
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        // Tampilkan HTML halaman untuk debugging
+        const pageContent = await page.content();
+        console.log('Page HTML:', pageContent.substring(0, 500) + '...');
         
-        // Mendapatkan dan menyimpan tangkapan layar
-        try {
-          const imageBuffer = await page.screenshot({ type: 'jpeg', quality: 50 });
-          const base64Image = imageBuffer.toString('base64');
-          console.log('Captured page screenshot (base64 preview):', base64Image.substring(0, 100) + '...');
-        } catch (screenshotError) {
-          console.error('Error taking screenshot:', screenshotError);
-        }
-        
-        // Mencoba klik semua elemen yang mungkin
         try {
           // Klik pada elemen yang mungkin memicu API calls
           await page.evaluate(() => {
-            console.log('Clicking on buttons and interactive elements');
-            
-            // Fungsi untuk mencoba klik semua elemen yang mungkin interaktif
-            const tryClickAll = (selector) => {
-              document.querySelectorAll(selector).forEach(el => {
-                try {
-                  console.log(`Clicking: ${el.outerHTML.substring(0, 100)}`);
-                  el.click();
-                } catch (e) {}
-              });
-            };
-            
-            // Klik pada berbagai jenis elemen yang mungkin interaktif
-            tryClickAll('button');
-            tryClickAll('a');
-            tryClickAll('[role="button"]');
-            tryClickAll('.btn');
-            tryClickAll('.button');
-            tryClickAll('.clickable');
+            console.log('Clicking on buttons');
+            // Click on elements that might trigger API calls
+            document.querySelectorAll('button, a.btn, [role="button"], .clickable, .button').forEach(el => {
+              console.log('Clicking element:', el.outerHTML);
+              el.click();
+            });
             
             // Coba interaksi dengan elemen input
             document.querySelectorAll('input').forEach(input => {
-              try {
-                input.focus();
-                input.click();
-                setTimeout(() => input.blur(), 100);
-              } catch (e) {}
+              console.log('Focusing input:', input.outerHTML);
+              input.focus();
+              input.blur();
             });
           });
           
           // Wait for potential network activity
           await new Promise(resolve => setTimeout(resolve, 5000));
+          
+          // Jika masih tidak ada token, coba scrolling halaman
+          if (!authToken) {
+            await page.evaluate(() => {
+              window.scrollTo(0, document.body.scrollHeight / 2);
+              setTimeout(() => {
+                window.scrollTo(0, document.body.scrollHeight);
+              }, 500);
+            });
+            
+            // Wait more
+            await new Promise(resolve => setTimeout(resolve, 3000));
+          }
         } catch (interactionError) {
           console.error('Error during page interaction:', interactionError);
         }
-        
-        // Mencoba mendapatkan local storage dan session storage
-        try {
-          const localStorage = await page.evaluate(() => Object.entries(window.localStorage));
-          console.log('Local Storage:', JSON.stringify(localStorage));
-          
-          const sessionStorage = await page.evaluate(() => Object.entries(window.sessionStorage));
-          console.log('Session Storage:', JSON.stringify(sessionStorage));
-        } catch (storageError) {
-          console.log('Error accessing storage:', storageError);
-        }
       }
       
-      clearTimeout(timeout);
       await browser.close();
       
       if (!authToken) {
-        console.log('Failed to extract token after all attempts, will use generated token');
-        
-        // Generate a random token as last resort
-        const shareId = cocaColaLink.split('/s/')[1]?.split('?')[0]?.trim() || 'fallback';
-        const randomToken = generateRandomToken(shareId);
-        const generatedToken = `Bearer ${randomToken}`;
-        
-        console.log(`Generated token as fallback: ${generatedToken}`);
-        
-        return res.json({ 
-          success: true, 
-          token: generatedToken,
-          method: "generated"
+        console.log('Failed to extract token after all attempts');
+        return res.status(404).json({ 
+          success: false, 
+          error: 'Token not found', 
+          message: 'Could not extract authorization token from the link. Pastikan link coca-cola valid dan belum kadaluarsa.' 
         });
       }
       
-      // Return the extracted token
-      console.log('Successfully extracted token via Puppeteer');
+      // Return the token
+      console.log('Successfully extracted token');
       return res.json({ 
         success: true, 
-        token: authToken,
-        method: "puppeteer"
+        token: authToken 
       });
       
     } catch (error) {
@@ -406,49 +283,6 @@ app.post('/api/extract-token', async (req, res) => {
     });
   }
 });
-
-// Helper function to generate a token with the shareId embedded
-function generateRandomToken(shareId) {
-  // Format: <header>.<payload>.<signature>
-  // Example: eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJhdWQiOiIzIiwiaWF0IjoxNzIzMjU5MDgwLCJleHAiOjE3MjQxMjMwODAsInVpZCI6IjE1NjQwNTAiLCJzaWQiOiIxNTY0MDUwIiwiZGV2aWNlX2lkIjoiZW11bGF0b3IifQ.P4Q8pW8FSfCt_eUKTovDvRlkC0XV_-wzp4KcVfsS3i-GL5pP-JlvEWEk3wUWl3GvRwRUe2N9Y-D-gQiV6Qx_XKev41xOzSPEfh7pDE7zLLak_DIXh7HzYqnLM_UTO9EyNGK70-sTbQwqJAaZ_XD6bGD02VRrDmN_LTSC9q10C4k
-  
-  // Header (fixed)
-  const header = "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9";
-  
-  // Create payload with random values but consistent format
-  const now = Math.floor(Date.now() / 1000);
-  const expiry = now + 864000; // 10 days from now
-  const uid = Math.floor(1000000 + Math.random() * 9000000).toString();
-  
-  // Include shareId in the payload to make it unique to this link
-  const payloadObj = {
-    "aud": "3",
-    "iat": now,
-    "exp": expiry,
-    "uid": uid,
-    "sid": uid,
-    "device_id": "mobile" + shareId.substring(0, 5),
-    "share_id": shareId
-  };
-  
-  // Convert to base64
-  const payloadStr = JSON.stringify(payloadObj);
-  const payloadBase64 = Buffer.from(payloadStr).toString('base64')
-    .replace(/=/g, '') // Remove padding equals
-    .replace(/\+/g, '-') // Replace + with -
-    .replace(/\//g, '_'); // Replace / with _
-  
-  // Generate random signature (just for format, not for verification)
-  let signature = '';
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
-  const length = 86 + Math.floor(Math.random() * 10); // Random length around 86-95
-  for (let i = 0; i < length; i++) {
-    signature += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  
-  // Combine to form JWT-like token
-  return `${header}.${payloadBase64}.${signature}`;
-}
 
 // SSE endpoint for attempt tracking
 app.get('/api/attempt-events', (req, res) => {
