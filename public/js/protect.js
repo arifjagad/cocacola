@@ -2,7 +2,7 @@
 
 /**
  * Protection utilities for Coca-Cola Code Claimer
- * Allows right-click on all devices
+ * Allows right-click on mobile devices but disables it on desktop
  */
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -10,7 +10,7 @@ document.addEventListener('DOMContentLoaded', function() {
   const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
   
   if (!isMobileDevice) {
-    // Untuk desktop, konfigurasikan proteksi termasuk pencegahan klik kanan
+    // Hanya terapkan proteksi lebih lanjut pada perangkat desktop
     
     // Disable selection for desktop
     document.body.style.userSelect = 'none';
@@ -39,7 +39,7 @@ document.addEventListener('DOMContentLoaded', function() {
       }
     });
   } else {
-    // Untuk mobile, biarkan selection text dan klik kanan berfungsi
+    // Untuk mobile, biarkan selection text berfungsi
     document.body.style.userSelect = 'text';
     document.body.style.webkitUserSelect = 'text';
     document.body.style.msUserSelect = 'text';

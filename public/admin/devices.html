@@ -55,7 +55,6 @@
             <tr>
               <th class="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Device ID</th>
               <th class="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">IP Address</th>
-              <th class="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Device Info</th>
               <th class="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Subscription</th>
               <th class="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
               <th class="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">First Seen</th>
@@ -65,7 +64,7 @@
           </thead>
           <tbody class="bg-white divide-y divide-gray-200" id="devices-table-body">
             <tr>
-              <td colspan="8" class="px-6 py-4 text-center text-sm text-gray-500">Loading devices...</td>
+              <td colspan="7" class="px-6 py-4 text-center text-sm text-gray-500">Loading devices...</td>
             </tr>
           </tbody>
         </table>
@@ -88,10 +87,11 @@
     </div>
   </div>
   
-  <!-- Device Details Modal -->
-  <div id="device-details-modal" class="fixed inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center hidden">
-    <div class="bg-white rounded-lg max-w-2xl w-full max-h-[80vh] overflow-y-auto p-6">
-      <div class="
+  <script>
+    // Get admin token from URL
+    const pathParts = window.location.pathname.split('/');
+    const adminToken = pathParts[pathParts.length - 1];
+    
     let currentPage = 1;
     let pageSize = 10;
     let totalDevices = 0;
@@ -157,6 +157,7 @@
           url.searchParams.append('subscription', subscriptionFilter);
         }
         
+        console.log('Fetching devices from:', url.toString());
         const response = await fetch(url.toString());
         
         if (!response.ok) {
@@ -164,6 +165,7 @@
         }
         
         const data = await response.json();
+        console.log('Devices data:', data);
         const devices = data.devices;
         totalDevices = data.total;
         
@@ -193,22 +195,21 @@
       }
       
       tableBody.innerHTML = devices.map(device => {
+        const subscription = device.subscriptions || {};
         return `
           <tr>
             <td class="px-6 py-4 whitespace-nowrap">
-              <div class="text-sm text-gray-900 font-mono">${device.device_id}</div>
+              <div class="text-sm text-gray-900 font-mono">${truncateId(device.device_id)}</div>
             </td>
             <td class="px-6 py-4 whitespace-nowrap">
               <div class="text-sm text-gray-900 font-mono">${device.ip_address || 'Unknown'}</div>
             </td>
             <td class="px-6 py-4 whitespace-nowrap">
-              <div class="flex items-center">
-                <div class="font-medium text-gray-900">${device.subscriptions?.access_code || 'N/A'}</div>
-              </div>
+              <div class="text-sm text-gray-900">${subscription.access_code || 'N/A'}</div>
             </td>
             <td class="px-6 py-4 whitespace-nowrap">
-              <div class="text-sm text-gray-900">${device.subscriptions?.customer_name || 'N/A'}</div>
-              <div class="text-sm text-gray-500">${device.subscriptions?.type || 'N/A'}</div>
+              <div class="text-sm text-gray-900">${subscription.customer_name || 'N/A'}</div>
+              <div class="text-xs text-gray-500">${subscription.type || 'N/A'}</div>
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
               ${formatDate(device.first_seen)}
@@ -224,6 +225,12 @@
       }).join('');
     }
     
+    // Truncate long device IDs
+    function truncateId(id) {
+      if (!id) return 'N/A';
+      return id.length > 20 ? id.substring(0, 17) + '...' : id;
+    }
+    
     // Format date
     function formatDate(dateString) {
       if (!dateString) return 'N/A';
@@ -233,7 +240,7 @@
     
     // Update pagination
     function updatePagination() {
-      const start = (currentPage - 1) * pageSize + 1;
+      const start = totalDevices === 0 ? 0 : (currentPage - 1) * pageSize + 1;
       const end = Math.min(currentPage * pageSize, totalDevices);
       
       document.getElementById('device-range').textContent = totalDevices === 0 ? '0-0' : `${start}-${end}`;

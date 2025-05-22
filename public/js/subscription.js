@@ -1,124 +1,54 @@
-// Subscription management and device tracking for Coca-Cola Code Claimer
+/**
+ * File yang menangani cek subscription dan device limit
+ */
 
-// Initialize FingerprintJS for device identification
-async function initFingerprint() {
-  try {
-    const fpPromise = FingerprintJS.load();
-    const fp = await fpPromise;
-    const result = await fp.get();
-    return result.visitorId;
-  } catch (error) {
-    console.error('Error initializing fingerprint:', error);
-    showToast('Error initializing fingerprint. Please try again.', 'error');
-    return null;
+// Generate simple device ID tanpa fingerprintjs
+function generateSimpleDeviceId() {
+  // Dapatkan informasi browser & OS standar yang cukup unik
+  const { userAgent, language, platform } = navigator;
+  const screenInfo = `${window.screen.width}x${window.screen.height}x${window.screen.colorDepth}`;
+  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  
+  // Kombinasi data untuk mendapatkan ID sederhana yang cukup untuk menandai device
+  const stringToHash = `${userAgent}|${language}|${platform}|${screenInfo}|${timeZone}`;
+  
+  // Buat hash sederhana
+  let hash = 0;
+  for (let i = 0; i < stringToHash.length; i++) {
+    const char = stringToHash.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32bit integer
   }
+  
+  // Konversi ke string yang lebih mudah dibaca
+  return Math.abs(hash).toString(16) + Date.now().toString(36);
 }
 
-// Fingerprinting function to gather device information
-async function generateDeviceFingerprint() {
-  // Collect basic browser and device information
-  const fingerprint = {
-    // Browser and platform info
-    userAgent: navigator.userAgent,
-    language: navigator.language,
-    platform: navigator.platform,
-    cookiesEnabled: navigator.cookieEnabled,
-    
-    // Screen properties
-    screenResolution: `${window.screen.width}x${window.screen.height}`,
-    colorDepth: window.screen.colorDepth,
-    
-    // Browser capabilities
-    touchPoints: navigator.maxTouchPoints || 0,
-    hardwareConcurrency: navigator.hardwareConcurrency || 'unknown',
-    deviceMemory: navigator.deviceMemory || 'unknown',
-    
-    // Timezone
-    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-    
-    // Browser and OS detection (simplified)
-    browser: detectBrowser(),
-    os: detectOS()
-  };
-  
-  // Collect canvas fingerprint if available
-  try {
-    const canvas = document.createElement('canvas');
-    const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
-    if (gl) {
-      // Get WebGL renderer information
-      const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
-      if (debugInfo) {
-        fingerprint.renderer = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL);
-        fingerprint.vendor = gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL);
-      }
-      
-      // Simple WebGL fingerprint
-      canvas.width = 256;
-      canvas.height = 128;
-      gl.clearColor(0.2, 0.3, 0.4, 1.0);
-      gl.clear(gl.COLOR_BUFFER_BIT);
-      const pixels = new Uint8Array(canvas.width * canvas.height * 4);
-      gl.readPixels(0, 0, canvas.width, canvas.height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
-      // Only use a small sample for the fingerprint to reduce size
-      fingerprint.glSample = Array.from(pixels.slice(0, 64)).join(',');
-    }
-  } catch (e) {
-    console.log('WebGL fingerprinting failed:', e);
-  }
-  
-  return fingerprint;
-  
-  // Helper functions to detect browser and OS
-  function detectBrowser() {
-    const ua = navigator.userAgent;
-    if (ua.includes('Firefox/')) return 'Firefox';
-    if (ua.includes('Edge/') || ua.includes('Edg/')) return 'Edge';
-    if (ua.includes('Chrome/')) return 'Chrome';
-    if (ua.includes('Safari/') && !ua.includes('Chrome/')) return 'Safari';
-    if (ua.includes('MSIE ') || ua.includes('Trident/')) return 'IE';
-    return 'Unknown';
-  }
-  
-  function detectOS() {
-    const ua = navigator.userAgent;
-    if (ua.includes('Windows')) return 'Windows';
-    if (ua.includes('Mac OS')) return 'MacOS';
-    if (ua.includes('Linux')) return 'Linux';
-    if (ua.includes('Android')) return 'Android';
-    if (ua.includes('iOS') || ua.includes('iPhone') || ua.includes('iPad')) return 'iOS';
-    return 'Unknown';
-  }
-}
-
-// Check if the current access code is valid and if the device limit has been reached
+// Function to check subscription status and update UI
 async function checkSubscription() {
   try {
-    // Get the access code from the URL
+    // Get URL parameters 
     const urlParams = new URLSearchParams(window.location.search);
     const accessCode = urlParams.get('code');
     
     if (!accessCode) {
-      // No access code found, redirect to the homepage
-      window.location.href = '/';
+      window.location.href = '/'; // Redirect to home if no access code
       return;
     }
     
-    // Get device fingerprint
-    const deviceId = await initFingerprint();
+    // Get device ID from storage or generate a new one
+    let deviceId = localStorage.getItem('deviceId');
     
     if (!deviceId) {
-      showSubscriptionError("Tidak dapat menginisialisasi pengenal perangkat. Silakan aktifkan JavaScript dan coba lagi.");
-      return;
+      // Generate simple device ID
+      deviceId = generateSimpleDeviceId();
+      localStorage.setItem('deviceId', deviceId);
     }
     
-    // Display device ID in the footer
-    document.getElementById('device-id').textContent = deviceId.substring(0, 8) + '...';
+    // Update the device ID in the UI
+    document.getElementById('device-id').innerText = deviceId.substring(0, 8) + '...';
     
-    // Generate fingerprint
-    const fingerprint = await generateDeviceFingerprint();
-    
-    // Call the API to check subscription status
+    // Check subscription with the API
     const response = await fetch('/api/check-subscription', {
       method: 'POST',
       headers: {
@@ -126,157 +56,70 @@ async function checkSubscription() {
       },
       body: JSON.stringify({
         accessCode,
-        deviceId,
-        fingerprint
+        deviceId
       })
     });
     
     if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || 'Failed to verify subscription');
+      const data = await response.json();
+      throw new Error(data.message || 'Failed to check subscription status');
     }
     
     const data = await response.json();
     
     if (!data.valid) {
-      // Invalid subscription or access code
-      showSubscriptionError(data.message || 'Langganan tidak valid atau sudah kadaluarsa');
-      return;
+      throw new Error(data.message || 'Invalid subscription');
     }
     
-    // Update subscription info
-    updateSubscriptionInfo(data);
+    // Update UI with subscription info
+    document.getElementById('expiry-date').innerText = `Berlaku hingga: ${new Date(data.expiryDate).toLocaleDateString('id-ID')}`;
     
-    // Check device limit
-    if (data.deviceCount > 1) {
-      showDeviceLimitWarning(data.deviceCount, data.deviceLimit);
+    // Update device count dan device limit (selalu tampilkan)
+    document.getElementById('device-count').innerText = data.deviceCount;
+    document.getElementById('device-limit').innerText = data.deviceLimit;
+    
+    // Ubah warna jika perangkat hampir penuh
+    if (data.deviceCount >= data.deviceLimit) {
+      document.getElementById('device-limit-warning').classList.remove('bg-blue-100', 'border-blue-300');
+      document.getElementById('device-limit-warning').classList.add('bg-yellow-100', 'border-yellow-300');
+      
+      const icon = document.querySelector('#device-limit-warning svg');
+      icon.classList.remove('text-blue-600');
+      icon.classList.add('text-yellow-600');
+      
+      const title = document.querySelector('#device-limit-warning p.font-medium');
+      title.classList.remove('text-blue-800');
+      title.classList.add('text-yellow-800');
+      
+      const text = document.querySelector('#device-limit-warning p.text-sm');
+      text.classList.remove('text-blue-700');
+      text.classList.add('text-yellow-700');
     }
     
-    // If subscription is about to expire (less than 3 days), show warning
-    const expiryDate = new Date(data.expiryDate);
-    const now = new Date();
-    const daysUntilExpiry = Math.floor((expiryDate - now) / (1000 * 60 * 60 * 24));
-    
-    if (daysUntilExpiry <= 3) {
-      showExpiryWarning(daysUntilExpiry);
-    }
+    return data;
     
   } catch (error) {
     console.error('Subscription check error:', error);
-    showSubscriptionError(error.message || 'Gagal memverifikasi langganan. Silakan coba lagi nanti.');
-  }
-}
-
-// Update subscription info display
-function updateSubscriptionInfo(data) {
-  const subscriptionInfo = document.getElementById('subscription-info');
-  const expiryDate = document.getElementById('expiry-date');
-  
-  // Format the expiry date
-  const formattedDate = new Date(data.expiryDate).toLocaleDateString('id-ID', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
-  });
-  
-  // Update the text
-  expiryDate.textContent = `Berlaku hingga: ${formattedDate}`;
-  
-  // Update subscription type display
-  const subscriptionType = subscriptionInfo.querySelector('.font-medium');
-  subscriptionType.textContent = `${data.subscriptionType} Access`;
-  
-  // Change color based on subscription type
-  if (data.subscriptionType === 'Basic') {
-    subscriptionInfo.classList.remove('bg-green-100', 'border-green-300');
-    subscriptionInfo.classList.add('bg-blue-100', 'border-blue-300');
-    subscriptionType.classList.remove('text-green-800');
-    subscriptionType.classList.add('text-blue-800');
-    expiryDate.classList.remove('text-green-700');
-    expiryDate.classList.add('text-blue-700');
-  } else if (data.subscriptionType === 'Ultimate') {
-    subscriptionInfo.classList.remove('bg-green-100', 'border-green-300');
-    subscriptionInfo.classList.add('bg-purple-100', 'border-purple-300');
-    subscriptionType.classList.remove('text-green-800');
-    subscriptionType.classList.add('text-purple-800');
-    expiryDate.classList.remove('text-green-700');
-    expiryDate.classList.add('text-purple-700');
-  }
-  
-  // Tambahkan informasi IP address jika tersedia
-  if (data.deviceInfo && data.deviceInfo.ipAddress) {
-    // Perbarui element yang menampilkan device ID
-    const deviceIdEl = document.getElementById('device-id');
-    if (deviceIdEl) {
-      deviceIdEl.textContent = `${data.deviceInfo.deviceId} (${data.deviceInfo.ipAddress})`;
-    }
-  }
-}
-
-// Show subscription error
-function showSubscriptionError(message) {
-  // Replace the entire content with an error message
-  document.body.innerHTML = `
-    <div class="min-h-screen bg-gray-100 flex flex-col items-center justify-center p-4">
-      <div class="bg-white p-8 rounded-lg shadow-xl max-w-md w-full">
-        <div class="text-center mb-6">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 text-red-500 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-          </svg>
-          <h2 class="text-2xl font-bold text-gray-800 mt-4">Error Langganan</h2>
-        </div>
-        <p class="text-gray-600 mb-6">${message}</p>
-        <div class="text-center">
-          <a href="/" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded transition-colors duration-300 inline-block">
-            Kembali ke Beranda
-          </a>
-        </div>
+    
+    // Show access denied overlay
+    const overlay = document.createElement('div');
+    overlay.className = 'fixed inset-0 bg-red-900 bg-opacity-95 flex items-center justify-center z-50';
+    overlay.innerHTML = `
+      <div class="bg-white p-6 rounded-lg max-w-md w-full text-center">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 text-red-600 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+        </svg>
+        <h2 class="text-xl font-bold text-red-600 mb-2">Akses Ditolak</h2>
+        <p class="text-gray-700 mb-6">${error.message}</p>
+        <a href="/" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded transition-colors duration-300">
+          Kembali ke Beranda
+        </a>
       </div>
-    </div>
-  `;
-}
-
-// Show device limit warning
-function showDeviceLimitWarning(deviceCount, deviceLimit) {
-  const deviceLimitWarning = document.getElementById('device-limit-warning');
-  const deviceCountSpan = document.getElementById('device-count');
-  
-  deviceCountSpan.textContent = `${deviceCount} dari ${deviceLimit}`;
-  deviceLimitWarning.classList.remove('hidden');
-}
-
-// Show expiry warning
-function showExpiryWarning(daysUntilExpiry) {
-  // Create the warning element
-  const warningDiv = document.createElement('div');
-  warningDiv.className = 'bg-yellow-100 mb-6 p-4 rounded-lg border border-yellow-300';
-  
-  let warningMessage = '';
-  if (daysUntilExpiry <= 0) {
-    warningMessage = 'Langganan Anda berakhir hari ini! Silakan perpanjang untuk menghindari gangguan.';
-  } else if (daysUntilExpiry === 1) {
-    warningMessage = 'Langganan Anda berakhir besok! Silakan perpanjang segera.';
-  } else {
-    warningMessage = `Langganan Anda berakhir dalam ${daysUntilExpiry} hari. Silakan perpanjang segera.`;
+    `;
+    
+    document.body.appendChild(overlay);
   }
-  
-  warningDiv.innerHTML = `
-    <div class="flex">
-      <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-yellow-600 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-      </svg>
-      <div>
-        <p class="font-medium text-yellow-800">Peringatan Masa Berlaku</p>
-        <p class="text-sm text-yellow-700">${warningMessage}</p>
-        <a href="https://wa.me/628xxxx?text=Saya%20ingin%20memperpanjang%20langganan%20saya" class="text-yellow-800 underline text-sm font-medium mt-1 inline-block">Perpanjang Sekarang</a>
-      </div>
-    </div>
-  `;
-  
-  // Insert after the subscription info div
-  const subscriptionInfo = document.getElementById('subscription-info');
-  subscriptionInfo.parentNode.insertBefore(warningDiv, subscriptionInfo.nextSibling);
 }
 
-// Initialize when document is loaded
+// Call the function when document is loaded
 document.addEventListener('DOMContentLoaded', checkSubscription);

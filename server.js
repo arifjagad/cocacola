@@ -219,7 +219,7 @@ app.post('/api/claim', async (req, res) => {
     };
 
     // Try to claim with up to maxAttempts
-    const maxAttempts = 10;
+    const maxAttempts = 10; // Reduced to 10 attempts per code (total 30 for 3 codes)
     let attemptCount = 0;
     let success = false;
     let finalResult = null;
@@ -239,7 +239,7 @@ app.post('/api/claim', async (req, res) => {
         
         if (response.status === 429) {
           // Rate limit hit, will retry after delay
-          await new Promise(resolve => setTimeout(resolve, 3000)); // 3 second delay
+          await new Promise(resolve => setTimeout(resolve, 1500)); // 1.5 second delay
           continue;
         }
         
@@ -447,17 +447,13 @@ app.post('/api/check-subscription', async (req, res) => {
       console.log(`Existing device updated - Code: ${accessCode}, IP: ${ipAddress}, Device ID: ${deviceId.substring(0, 8)}...`);
     }
     
-    // Return subscription info
+    // Return subscription info - dengan informasi yang lebih sederhana
     return res.json({
       valid: true,
       subscriptionType: subscription.type,
       expiryDate: subscription.expiry_date,
       deviceCount: thisDevice ? devices.length : devices.length + 1,
-      deviceLimit: subscription.device_limit,
-      deviceInfo: {
-        deviceId: deviceId.substring(0, 8) + '...',
-        ipAddress: ipAddress.includes('::') ? ipAddress.substring(0, 7) + '...' : ipAddress.split('.').slice(0, 2).join('.') + '...'
-      }
+      deviceLimit: subscription.device_limit
     });
     
   } catch (error) {

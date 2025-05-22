@@ -158,26 +158,37 @@ function getSuccessMessage(responseData) {
   }
 }
 
-// Function to claim code via API
-async function claimCode(packagingCode, authorization) {
+// Function to claim a single code via API
+async function claimCode(packagingCode, authorization, codeIndex = 0, totalCodes = 1) {
   try {
     // Get DOM elements for updating UI
     const resultDisplay = document.getElementById('result-display');
     const attemptCounter = document.getElementById('attempt-counter');
     const progressBar = document.getElementById('progress-bar');
     
-    // Clear previous results completely
-    resultDisplay.innerHTML = '';
+    // Update batch progress if we have multiple codes
+    if (totalCodes > 1) {
+      document.getElementById('batch-progress').classList.remove('hidden');
+      document.getElementById('current-code-number').textContent = codeIndex + 1;
+      document.getElementById('total-codes-number').textContent = totalCodes;
+    }
     
-    // Update UI to show we're starting
-    attemptCounter.textContent = `Memulai proses claim...`;
-    progressBar.style.width = `5%`;
+    // Update the corresponding code badge if we can find it
+    const codeElements = document.querySelectorAll('.packaging-code');
+    if (codeElements[codeIndex]) {
+      const badgeElement = codeElements[codeIndex].nextElementSibling;
+      badgeElement.textContent = "Sedang Diproses";
+      badgeElement.className = "ml-2 code-badge badge-processing";
+    }
+    
+    // Update UI to show we're starting with this specific code
+    attemptCounter.textContent = `Memproses kode ${codeIndex + 1}/${totalCodes}: ${packagingCode}`;
     
     // Create a realtime attempt status display that will be updated
     const realtimeStatusDiv = document.createElement('div');
-    realtimeStatusDiv.id = 'realtime-status';
+    realtimeStatusDiv.id = `realtime-status-${codeIndex}`;
     realtimeStatusDiv.className = 'p-2 mb-2 bg-blue-100 text-blue-800 rounded';
-    realtimeStatusDiv.innerHTML = `<span class="font-medium">Sedang memproses...</span>`;
+    realtimeStatusDiv.innerHTML = `<span class="font-medium">Kode ${codeIndex + 1}: ${packagingCode} - Sedang memproses...</span>`;
     resultDisplay.prepend(realtimeStatusDiv);
     
     // Set up event source for real-time updates
@@ -191,13 +202,17 @@ async function claimCode(packagingCode, authorization) {
           const attemptNum = data.attempt;
           
           // Update the realtime status display
-          realtimeStatusDiv.innerHTML = `<span class="font-medium">Mencoba: Percobaan ke-${attemptNum}</span>`;
+          realtimeStatusDiv.innerHTML = `<span class="font-medium">Kode ${codeIndex + 1}: ${packagingCode} - Percobaan ke-${attemptNum}</span>`;
           
           // Update the progress counter
-          attemptCounter.textContent = `Sedang berjalan: Percobaan ke-${attemptNum}`;
+          attemptCounter.textContent = `Kode ${codeIndex + 1}/${totalCodes}: ${packagingCode} - Percobaan ke-${attemptNum}`;
           
-          // Update the progress bar (assuming max 100 attempts)
-          const progressPercent = Math.min(5 + (attemptNum / 100 * 95), 95);
+          // Calculate total progress across all codes:
+          // Each code gets 10 attempts, so for code index i, progress is (i * 10 + currentAttempt) / (totalCodes * 10)
+          const progressPercent = Math.min(
+            5 + ((codeIndex * 10 + attemptNum) / (totalCodes * 10) * 95), 
+            (codeIndex + 1) / totalCodes * 100
+          );
           progressBar.style.width = `${progressPercent}%`;
         }
       } catch (e) {
@@ -232,55 +247,72 @@ async function claimCode(packagingCode, authorization) {
     const result = await response.json();
     
     // Remove the realtime status div
-    if (document.getElementById('realtime-status')) {
-      document.getElementById('realtime-status').remove();
+    if (document.getElementById(`realtime-status-${codeIndex}`)) {
+      document.getElementById(`realtime-status-${codeIndex}`).remove();
     }
-    
-    // Update progress to complete
-    progressBar.style.width = '100%';
-    attemptCounter.textContent = `Selesai setelah ${result.attempts} percobaan`;
     
     // Create result entry
     const logEntry = document.createElement('div');
+    
+    // Update the corresponding code badge if we can find it
+    if (codeElements[codeIndex]) {
+      const badgeElement = codeElements[codeIndex].nextElementSibling;
+      
+      if (result.success) {
+        badgeElement.textContent = "Berhasil";
+        badgeElement.className = "ml-2 code-badge badge-success";
+      } else {
+        badgeElement.textContent = "Gagal";
+        badgeElement.className = "ml-2 code-badge badge-failed";
+      }
+    }
     
     if (result.success) {
       // Success case - Get custom message based on response data
       const successMessage = getSuccessMessage(result.result);
       
       logEntry.className = 'p-2 mb-2 bg-green-100 text-green-800 rounded';
-      logEntry.innerHTML = `<strong>${successMessage}</strong><br><span class="text-xs">(${result.attempts} percobaan)</span><br>${JSON.stringify(result.result, null, 2)}`;
-      showToast(successMessage, 'success');
+      logEntry.innerHTML = `<strong>Kode ${codeIndex + 1}: ${packagingCode} - ${successMessage}</strong><br><span class="text-xs">(${result.attempts} percobaan)</span><br><details class="mt-1"><summary class="cursor-pointer text-xs">Lihat Detail</summary><pre class="mt-1 text-xs overflow-auto">${JSON.stringify(result.result, null, 2)}</pre></details>`;
+      
+      if (codeIndex === totalCodes - 1 || totalCodes === 1) {
+        // Only show toast for single code or the last code in batch
+        showToast(successMessage, 'success');
+      }
     } else {
       // Error case
       switch (result.status) {
         case 'LIMIT_REACHED':
-          logEntry.className = 'p-2 mb-2 bg-red-100 text-red-800 rounded font-bold';
-          logEntry.textContent = `⚠️ ${result.message}`;
-          showToast(result.message, 'error');
+          logEntry.className = 'p-2 mb-2 bg-red-100 text-red-800 rounded';
+          logEntry.innerHTML = `<strong>Kode ${codeIndex + 1}: ${packagingCode} - ⚠️ ${result.message}</strong>`;
+          if (codeIndex === totalCodes - 1 || totalCodes === 1) {
+            showToast(result.message, 'error');
+          }
           break;
         case 'INVALID_CODE':
-          logEntry.className = 'p-2 mb-2 bg-red-100 text-red-800 rounded font-bold';
-          logEntry.textContent = `❌ ${result.message}`;
-          showToast(result.message, 'error');
+          logEntry.className = 'p-2 mb-2 bg-red-100 text-red-800 rounded';
+          logEntry.innerHTML = `<strong>Kode ${codeIndex + 1}: ${packagingCode} - ❌ ${result.message}</strong>`;
+          if (codeIndex === totalCodes - 1 || totalCodes === 1) {
+            showToast(result.message, 'error');
+          }
           break;
         case 'MAX_ATTEMPTS':
           logEntry.className = 'p-2 mb-2 bg-yellow-100 text-yellow-800 rounded';
-          logEntry.textContent = `⚠️ ${result.message}`;
-          showToast(result.message, 'error');
+          logEntry.innerHTML = `<strong>Kode ${codeIndex + 1}: ${packagingCode} - ⚠️ ${result.message}</strong>`;
+          if (codeIndex === totalCodes - 1 || totalCodes === 1) {
+            showToast(result.message, 'error');
+          }
           break;
         default:
           logEntry.className = 'p-2 mb-2 bg-red-100 text-red-800 rounded';
-          logEntry.innerHTML = `<strong>Error:</strong><br> ${JSON.stringify(result, null, 2)}`;
-          showToast('Terjadi kesalahan saat memproses permintaan', 'error');
+          logEntry.innerHTML = `<strong>Kode ${codeIndex + 1}: ${packagingCode} - Error:</strong><br><details class="mt-1"><summary class="cursor-pointer text-xs">Lihat Detail</summary><pre class="mt-1 text-xs overflow-auto">${JSON.stringify(result, null, 2)}</pre></details>`;
+          if (codeIndex === totalCodes - 1 || totalCodes === 1) {
+            showToast('Terjadi kesalahan saat memproses permintaan', 'error');
+          }
       }
     }
     
     // Add the result to the display
     resultDisplay.prepend(logEntry);
-    
-    // Re-enable the start button
-    document.getElementById('start-button').disabled = false;
-    document.getElementById('start-button').textContent = 'Mulai Claim';
     
     return result;
   } catch (error) {
@@ -290,18 +322,54 @@ async function claimCode(packagingCode, authorization) {
     const resultDisplay = document.getElementById('result-display');
     const logEntry = document.createElement('div');
     logEntry.className = 'p-2 mb-2 bg-red-100 text-red-800 rounded';
-    logEntry.textContent = `Error: ${error.message}`;
+    logEntry.textContent = `Error pada kode ${codeIndex + 1}: ${error.message}`;
     resultDisplay.prepend(logEntry);
     
-    // Re-enable the start button
-    document.getElementById('start-button').disabled = false;
-    document.getElementById('start-button').textContent = 'Mulai Claim';
+    // Update badge if possible
+    const codeElements = document.querySelectorAll('.packaging-code');
+    if (codeElements[codeIndex]) {
+      const badgeElement = codeElements[codeIndex].nextElementSibling;
+      badgeElement.textContent = "Error";
+      badgeElement.className = "ml-2 code-badge badge-failed";
+    }
     
     // Update toast
-    showToast(`Error: ${error.message}`, 'error');
+    if (codeIndex === totalCodes - 1 || totalCodes === 1) {
+      showToast(`Error: ${error.message}`, 'error');
+    }
     
     return null;
   }
+}
+
+// New function to process multiple codes sequentially
+async function processMultipleCodes(codes, token) {
+  const totalCodes = codes.length;
+  const progressBar = document.getElementById('progress-bar');
+  const attemptCounter = document.getElementById('attempt-counter');
+  
+  // Set initial progress
+  progressBar.style.width = '0%';
+  attemptCounter.textContent = `Mempersiapkan ${totalCodes} kode...`;
+  
+  // Process each code sequentially
+  for (let i = 0; i < codes.length; i++) {
+    const code = codes[i].trim();
+    if (code) {
+      await claimCode(code, token, i, totalCodes);
+    }
+  }
+  
+  // Final progress update
+  progressBar.style.width = '100%';
+  attemptCounter.textContent = `Selesai memproses ${totalCodes} kode`;
+  
+  // Hide batch progress indicator
+  document.getElementById('batch-progress').classList.add('hidden');
+  
+  // Re-enable the start button
+  document.getElementById('start-button').disabled = false;
+  document.getElementById('start-button').textContent = 'Mulai Claim';
 }
 
 // Function to update the attempt display
@@ -396,18 +464,83 @@ function toggleLinkVisibility() {
 document.addEventListener('DOMContentLoaded', function() {
   const startButton = document.getElementById('start-button');
   const linkInput = document.getElementById('coca-cola-link');
+  const addCodeButton = document.getElementById('add-code-button');
   
-  // Always ensure right-clicking is enabled
-  document.body.oncontextmenu = function() { return true; };
+  // Always ensure right-clicking is enabled on mobile
+  if (isMobileDevice) {
+    document.body.oncontextmenu = function() { return true; };
+  }
+  
+  // Click event for the add code button
+  addCodeButton.addEventListener('click', function() {
+    const codeContainer = document.getElementById('packaging-codes-container');
+    const codeInputs = codeContainer.querySelectorAll('.packaging-code');
+    
+    // Limit to maximum 3 codes
+    if (codeInputs.length < 3) {
+      // Create a new code input field with badge
+      const codeInputWrapper = document.createElement('div');
+      codeInputWrapper.className = 'flex items-center';
+      
+      const codeInput = document.createElement('input');
+      codeInput.type = 'text';
+      codeInput.className = 'packaging-code w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500';
+      codeInput.placeholder = 'Masukkan kode tambahan';
+      
+      const badge = document.createElement('span');
+      badge.className = 'ml-2 code-badge badge-waiting';
+      badge.textContent = 'Menunggu';
+      
+      // Remove button
+      const removeButton = document.createElement('button');
+      removeButton.type = 'button';
+      removeButton.className = 'ml-2 text-red-500 hover:text-red-700 focus:outline-none';
+      removeButton.innerHTML = `
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+        </svg>
+      `;
+      
+      removeButton.addEventListener('click', function() {
+        codeInputWrapper.remove();
+        // Show the add button again if we're under the limit
+        if (codeContainer.querySelectorAll('.packaging-code').length < 3) {
+          addCodeButton.style.display = '';
+        }
+      });
+      
+      // Add everything to the container
+      codeInputWrapper.appendChild(codeInput);
+      codeInputWrapper.appendChild(badge);
+      codeInputWrapper.appendChild(removeButton);
+      
+      // Insert before the "Add code" button container
+      codeContainer.insertBefore(codeInputWrapper, addCodeButton.parentElement);
+      
+      // Hide the add button if we've reached the limit
+      if (codeContainer.querySelectorAll('.packaging-code').length >= 3) {
+        addCodeButton.style.display = 'none';
+      }
+    }
+  });
   
   // Click event for the start button
   startButton.addEventListener('click', async function() {
     try {
       const cocaColaLink = document.getElementById('coca-cola-link').value;
-      const packagingCode = document.getElementById('packaging-code').value;
+      const codeInputs = document.querySelectorAll('.packaging-code');
       
-      if (!cocaColaLink || !packagingCode) {
-        showToast('Silakan isi link Coca-Cola dan Kode Kemasan', 'error');
+      // Collect all codes
+      const packagingCodes = [];
+      for (const input of codeInputs) {
+        const code = input.value.trim();
+        if (code) {
+          packagingCodes.push(code);
+        }
+      }
+      
+      if (!cocaColaLink || packagingCodes.length === 0) {
+        showToast('Silakan isi link Coca-Cola dan minimal 1 Kode Kemasan', 'error');
         return;
       }
 
@@ -437,8 +570,8 @@ document.addEventListener('DOMContentLoaded', function() {
       }
       
       // Then start the claim process with the extracted token
-      showToast('Token berhasil diekstrak, memulai proses claim...', 'success');
-      await claimCode(packagingCode, token);
+      showToast(`Token berhasil diekstrak, memulai proses claim ${packagingCodes.length} kode...`, 'success');
+      await processMultipleCodes(packagingCodes, token);
       
     } catch (error) {
       console.error('Process error:', error);

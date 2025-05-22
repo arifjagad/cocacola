@@ -9,9 +9,19 @@
   <meta http-equiv="Expires" content="0">
   <title>Coca-Cola Code Claimer</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@fingerprintjs/fingerprintjs@3/dist/fp.min.js"></script>
   <!-- Tambahkan file protect.js di awal untuk melindungi halaman -->
   <script src="/js/protect.js"></script>
+  <script>
+    // Deteksi apakah pengguna menggunakan perangkat mobile
+    const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    
+    // Fungsi untuk menangani klik kanan berdasarkan jenis perangkat
+    function handleContextMenu(event) {
+      // Jika perangkat mobile, ijinkan klik kanan (return true)
+      // Jika desktop, cegah klik kanan (return false)
+      return isMobileDevice;
+    }
+  </script>
   <style>
     /* CSS untuk mencegah seleksi teks */
     body {
@@ -67,9 +77,35 @@
       0% { transform: scale(0); }
       100% { transform: scale(1); }
     }
+    
+    /* Badge styling for code status */
+    .code-badge {
+      display: inline-block;
+      border-radius: 9999px;
+      padding: 0.25rem 0.5rem;
+      font-size: 0.75rem;
+      font-weight: 600;
+      line-height: 1;
+    }
+    .badge-waiting {
+      background-color: #e5e7eb;
+      color: #4b5563;
+    }
+    .badge-processing {
+      background-color: #dbeafe;
+      color: #1e40af;
+    }
+    .badge-success {
+      background-color: #d1fae5;
+      color: #047857;
+    }
+    .badge-failed {
+      background-color: #fee2e2;
+      color: #b91c1c;
+    }
   </style>
 </head>
-<body class="bg-gray-100 min-h-screen">
+<body class="bg-gray-100 min-h-screen" oncontextmenu="return handleContextMenu(event);">
   <div class="container mx-auto p-4 max-w-md">
     <!-- Header with logo -->
     <div class="flex justify-center mb-6 mt-4">
@@ -91,15 +127,15 @@
       </div>
     </div>
     
-    <!-- Device limit warning (hidden by default) -->
-    <div id="device-limit-warning" class="hidden bg-yellow-100 mb-6 p-4 rounded-lg border border-yellow-300">
+    <!-- Device limit warning (sekarang selalu tampilkan, bukan hidden) -->
+    <div id="device-limit-warning" class="bg-blue-100 mb-6 p-4 rounded-lg border border-blue-300">
       <div class="flex">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-yellow-600 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-blue-600 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
         </svg>
         <div>
-          <p class="font-medium text-yellow-800">Peringatan Batas Perangkat</p>
-          <p class="text-sm text-yellow-700">Anda saat ini menggunakan <span id="device-count">0</span> dari 2 perangkat yang diizinkan. Akses pada perangkat tambahan akan diblokir.</p>
+          <p class="font-medium text-blue-800">Info Perangkat</p>
+          <p class="text-sm text-blue-700">Saat ini terpakai <span id="device-count">-</span> dari <span id="device-limit">-</span> perangkat yang diizinkan.</p>
         </div>
       </div>
     </div>
@@ -134,10 +170,27 @@
             <p class="text-xs text-gray-500 mt-1">Tempel link Coca-Cola Anda di sini (klik ikon mata untuk menampilkan/menyembunyikan link lengkap)</p>
           </div>
           
+          <!-- Multi-code input section -->
           <div>
-            <label for="packaging-code" class="block text-sm font-medium text-gray-700 mb-1">Kode Kemasan</label>
-            <input type="text" id="packaging-code" placeholder="Masukkan kode (contoh: 6HXXXXX)" 
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500">
+            <label class="block text-sm font-medium text-gray-700 mb-1">Kode Kemasan (maksimal 3 kode)</label>
+            <div id="packaging-codes-container" class="space-y-2">
+              <!-- First code input (required) -->
+              <div class="flex items-center">
+                <input type="text" class="packaging-code w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500" 
+                       placeholder="Masukkan kode (contoh: 6HXXXXX)" required>
+                <span class="ml-2 code-badge badge-waiting">Menunggu</span>
+              </div>
+              
+              <!-- Add-code button -->
+              <div class="flex justify-end">
+                <button id="add-code-button" type="button" class="text-sm flex items-center text-blue-600 hover:text-blue-800">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clip-rule="evenodd" />
+                  </svg>
+                  Tambah Kode (Maksimal 3)
+                </button>
+              </div>
+            </div>
           </div>
           
           <!-- Start button -->
@@ -174,6 +227,9 @@
               <span id="attempt-counter" class="text-xs font-semibold inline-block text-red-600">
                 Siap memulai
               </span>
+            </div>
+            <div id="batch-progress" class="hidden text-xs font-semibold text-blue-600">
+              Proses: <span id="current-code-number">0</span>/<span id="total-codes-number">0</span>
             </div>
           </div>
           <div class="overflow-hidden h-2 mb-4 text-xs flex rounded bg-red-100">
