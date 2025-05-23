@@ -202,24 +202,14 @@ async function claimCode(packagingCode, authorization, codeIndex = 0, totalCodes
           const attemptNum = data.attempt;
           
           // Update the realtime status display
-          realtimeStatusDiv.innerHTML = `<span class="font-medium">Kode ${codeIndex + 1}: ${packagingCode} - Percobaan ke-${attemptNum}</span>`;
+          realtimeStatusDiv.innerHTML = `<span class="font-medium">Kode ${codeIndex + 1}: ${packagingCode} - Percobaan ke-${attemptNum}/10</span>`;
           
           // Update the progress counter
-          attemptCounter.textContent = `Kode ${codeIndex + 1}/${totalCodes}: ${packagingCode} - Percobaan ke-${attemptNum}`;
+          attemptCounter.textContent = `Kode ${codeIndex + 1}/${totalCodes}: ${packagingCode} - Percobaan ke-${attemptNum}/10`;
           
-          // For unlimited attempts, use a pulsing animation on the progress bar after a certain point
-          if (attemptNum > 20) {
-            progressBar.classList.add('animate-pulse');
-            
-            // For visual feedback, cycle the progress bar between 30% and 95% 
-            // to indicate ongoing work but not falsely indicate completion
-            const cyclePosition = 30 + (attemptNum % 10) * 6.5; // Will cycle between ~30% and ~95%
-            progressBar.style.width = `${cyclePosition}%`;
-          } else {
-            // For early attempts, show increasing progress up to about 30%
-            const initialProgress = Math.min(5 + (attemptNum / 20) * 25, 30);
-            progressBar.style.width = `${initialProgress}%`;
-          }
+          // Calculate progress based on max 10 attempts
+          const attemptProgress = Math.min(10 + (attemptNum / 10) * 70, 85);
+          progressBar.style.width = `${attemptProgress}%`;
         }
       } catch (e) {
         console.error('Error parsing SSE data:', e);
@@ -310,9 +300,9 @@ async function claimCode(packagingCode, authorization, codeIndex = 0, totalCodes
             showToast(result.message, 'error');
           }
           break;
-        case 'MAX_ATTEMPTS': // This should rarely occur now
+        case 'MAX_ATTEMPTS':
           logEntry.className = 'p-2 mb-2 bg-yellow-100 text-yellow-800 rounded';
-          logEntry.innerHTML = `<strong>Kode ${codeIndex + 1}: ${packagingCode} - ⚠️ ${result.message}</strong>`;
+          logEntry.innerHTML = `<strong>Kode ${codeIndex + 1}: ${packagingCode} - ⚠️ ${result.message}</strong><br><span class="text-xs">(${result.attempts} percobaan)</span>`;
           if (codeIndex === totalCodes - 1 || totalCodes === 1) {
             showToast(result.message, 'error');
           }
@@ -399,12 +389,12 @@ function updateAttemptDisplay(attemptNumber) {
   const progressBar = document.getElementById('progress-bar');
   const attemptCounter = document.getElementById('attempt-counter');
   
-  // Assume max attempts is 100 for progress bar calculation
-  const progressPercent = Math.min(5 + ((attemptNumber / 100) * 95), 95);
+  // Calculate progress based on max 10 attempts
+  const progressPercent = Math.min(5 + ((attemptNumber / 10) * 85), 95);
   progressBar.style.width = `${progressPercent}%`;
   
   // Update attempt counter text
-  attemptCounter.textContent = `Sedang berjalan: Percobaan ke-${attemptNumber}`;
+  attemptCounter.textContent = `Sedang berjalan: Percobaan ke-${attemptNumber}/10`;
 }
 
 // Variables to track link visibility state

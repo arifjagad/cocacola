@@ -337,8 +337,8 @@ app.post('/api/claim', async (req, res) => {
       "User-Agent": "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Mobile Safari/537.36"
     };
 
-    // Try to claim with unlimited attempts until success or specific error
-    const maxAttempts = 999; // Set to a very high number effectively making it unlimited
+    // Try to claim with maximum 10 attempts per code
+    const maxAttempts = 10;
     let attemptCount = 0;
     let success = false;
     let finalResult = null;
@@ -385,8 +385,8 @@ app.post('/api/claim', async (req, res) => {
               result
             });
           }
-          // Other error, will retry
-          await new Promise(resolve => setTimeout(resolve, 3000)); // 3 second delay
+          // Other error, will retry until max attempts
+          await new Promise(resolve => setTimeout(resolve, 2000)); // 2 second delay
         } else {
           // Success, stop attempts
           success = true;
@@ -415,21 +415,15 @@ app.post('/api/claim', async (req, res) => {
         }
       } catch (error) {
         console.error(`Attempt ${attemptCount} failed:`, error);
-        await new Promise(resolve => setTimeout(resolve, 3000)); // 3 second delay on error
-      }
-      
-      // If we've tried a lot of times without success, add longer delays to prevent overloading
-      if (attemptCount % 20 === 0) {
-        console.log(`High attempt count (${attemptCount}), adding extra delay`);
-        await new Promise(resolve => setTimeout(resolve, 5000)); // Add extra 5s delay every 20 attempts
+        await new Promise(resolve => setTimeout(resolve, 2000)); // 2 second delay on error
       }
     }
     
-    // This should rarely happen since we have a very high maxAttempts
+    // If we've reached max attempts without success
     return res.json({
       success: false,
       status: 'MAX_ATTEMPTS',
-      message: 'Mencapai batas maksimum percobaan tanpa keberhasilan',
+      message: `Mencapai batas maksimum ${maxAttempts} percobaan tanpa keberhasilan`,
       attempts: attemptCount,
       result: finalResult
     });
