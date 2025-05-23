@@ -202,13 +202,13 @@ async function claimCode(packagingCode, authorization, codeIndex = 0, totalCodes
           const attemptNum = data.attempt;
           
           // Update the realtime status display
-          realtimeStatusDiv.innerHTML = `<span class="font-medium">Kode ${codeIndex + 1}: ${packagingCode} - Percobaan ke-${attemptNum}/10</span>`;
+          realtimeStatusDiv.innerHTML = `<span class="font-medium">Kode ${codeIndex + 1}: ${packagingCode} - Percobaan ke-${attemptNum}/25</span>`;
           
           // Update the progress counter
-          attemptCounter.textContent = `Kode ${codeIndex + 1}/${totalCodes}: ${packagingCode} - Percobaan ke-${attemptNum}/10`;
+          attemptCounter.textContent = `Kode ${codeIndex + 1}/${totalCodes}: ${packagingCode} - Percobaan ke-${attemptNum}/25`;
           
-          // Calculate progress based on max 10 attempts
-          const attemptProgress = Math.min(10 + (attemptNum / 10) * 70, 85);
+          // Calculate progress based on max 25 attempts
+          const attemptProgress = Math.min(10 + (attemptNum / 25) * 70, 85);
           progressBar.style.width = `${attemptProgress}%`;
         }
       } catch (e) {
@@ -277,11 +277,11 @@ async function claimCode(packagingCode, authorization, codeIndex = 0, totalCodes
       const successMessage = getSuccessMessage(result.result);
       
       logEntry.className = 'p-2 mb-2 bg-green-100 text-green-800 rounded';
-      logEntry.innerHTML = `<strong>Kode ${codeIndex + 1}: ${packagingCode} - ${successMessage}</strong><br><span class="text-xs">(${result.attempts} percobaan)</span><br><details class="mt-1"><summary class="cursor-pointer text-xs">Lihat Detail</summary><pre class="mt-1 text-xs overflow-auto">${JSON.stringify(result.result, null, 2)}</pre></details>`;
+      logEntry.innerHTML = `<strong>Kode ${codeIndex + 1}: ${packagingCode} - ${successMessage}</strong><br><span class="text-xs">(Berhasil pada percobaan ke-${result.attempts})</span><br><details class="mt-1"><summary class="cursor-pointer text-xs">Lihat Detail</summary><pre class="mt-1 text-xs overflow-auto">${JSON.stringify(result.result, null, 2)}</pre></details>`;
       
       if (codeIndex === totalCodes - 1 || totalCodes === 1) {
         // Only show toast for single code or the last code in batch
-        showToast(successMessage, 'success');
+        showToast(`${successMessage} (Percobaan ke-${result.attempts})`, 'success');
       }
     } else {
       // Error case
@@ -300,11 +300,34 @@ async function claimCode(packagingCode, authorization, codeIndex = 0, totalCodes
             showToast(result.message, 'error');
           }
           break;
+        case 'INVALID_ARGUMENT':
+          // Check for the specific error message "packaging_code_used"
+          if (result.result && result.result.error && result.result.error.message === 'packaging_code_used') {
+            logEntry.className = 'p-2 mb-2 bg-orange-100 text-orange-800 rounded';
+            logEntry.innerHTML = `<strong>Kode ${codeIndex + 1}: ${packagingCode} - ⚠️ Kode sudah digunakan</strong>`;
+            if (codeIndex === totalCodes - 1 || totalCodes === 1) {
+              showToast('Kode sudah digunakan', 'error');
+            }
+          } else {
+            logEntry.className = 'p-2 mb-2 bg-red-100 text-red-800 rounded';
+            logEntry.innerHTML = `<strong>Kode ${codeIndex + 1}: ${packagingCode} - ❌ ${result.message}</strong>`;
+            if (codeIndex === totalCodes - 1 || totalCodes === 1) {
+              showToast(result.message, 'error');
+            }
+          }
+          break;
         case 'MAX_ATTEMPTS':
           logEntry.className = 'p-2 mb-2 bg-yellow-100 text-yellow-800 rounded';
           logEntry.innerHTML = `<strong>Kode ${codeIndex + 1}: ${packagingCode} - ⚠️ ${result.message}</strong><br><span class="text-xs">(${result.attempts} percobaan)</span>`;
           if (codeIndex === totalCodes - 1 || totalCodes === 1) {
             showToast(result.message, 'error');
+          }
+          // Check if there's a "packaging_code_used" error in the final result after max attempts
+          if (result.result && result.result.error && result.result.error.message === 'packaging_code_used') {
+            logEntry.innerHTML = `<strong>Kode ${codeIndex + 1}: ${packagingCode} - ⚠️ Kode sudah digunakan</strong><br><span class="text-xs">(${result.attempts} percobaan)</span>`;
+            if (codeIndex === totalCodes - 1 || totalCodes === 1) {
+              showToast('Kode sudah digunakan', 'error');
+            }
           }
           break;
         default:

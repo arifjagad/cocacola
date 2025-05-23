@@ -337,8 +337,8 @@ app.post('/api/claim', async (req, res) => {
       "User-Agent": "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Mobile Safari/537.36"
     };
 
-    // Try to claim with maximum 10 attempts per code
-    const maxAttempts = 10;
+    // Increased max attempts from 10 to 25
+    const maxAttempts = 25;
     let attemptCount = 0;
     let success = false;
     let finalResult = null;
@@ -358,7 +358,7 @@ app.post('/api/claim', async (req, res) => {
         
         if (response.status === 429) {
           // Rate limit hit, will retry after delay
-          await new Promise(resolve => setTimeout(resolve, 1500)); // 1.5 second delay
+          await new Promise(resolve => setTimeout(resolve, 1000)); // 1 second delay
           continue;
         }
         
@@ -384,11 +384,20 @@ app.post('/api/claim', async (req, res) => {
               attempts: attemptCount,
               result
             });
+          } else if (result.error.message === 'packaging_code_used') {
+            // Code already used, stop attempts
+            return res.json({
+              success: false,
+              status: 'INVALID_ARGUMENT',
+              message: 'Kode sudah digunakan',
+              attempts: attemptCount,
+              result
+            });
           }
           // Other error, will retry until max attempts
-          await new Promise(resolve => setTimeout(resolve, 2000)); // 2 second delay
+          await new Promise(resolve => setTimeout(resolve, 1000)); // 1 second delay
         } else {
-          // Success, stop attempts
+          // Success! Stop attempts and return the result immediately
           success = true;
           
           // Try to parse the result data to make it easier for the client
@@ -415,7 +424,7 @@ app.post('/api/claim', async (req, res) => {
         }
       } catch (error) {
         console.error(`Attempt ${attemptCount} failed:`, error);
-        await new Promise(resolve => setTimeout(resolve, 2000)); // 2 second delay on error
+        await new Promise(resolve => setTimeout(resolve, 1000)); // 1 second delay on error
       }
     }
     
