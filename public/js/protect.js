@@ -7,7 +7,10 @@
 
 document.addEventListener('DOMContentLoaded', function() {
   // Deteksi perangkat mobile menggunakan user agent
-  const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  window.isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  
+  // Deteksi iOS secara spesifik
+  window.isIOSDevice = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
   
   if (!isMobileDevice) {
     // Hanya terapkan proteksi lebih lanjut pada perangkat desktop
@@ -52,19 +55,19 @@ document.addEventListener('DOMContentLoaded', function() {
   if (isMobileDevice) {
     document.body.classList.add('is-mobile-device');
   }
+  
+  if (isIOSDevice) {
+    document.body.classList.add('is-ios-device');
+    console.log("iOS device detected - bypassing DevTools detection");
+  }
 });
 
-// KODE YANG DIHAPUS: Mencegah klik kanan
-// Kita menghapus event listener contextmenu berikut untuk mengizinkan klik kanan
-/* 
-document.addEventListener('contextmenu', event => {
-  event.preventDefault();
-  alert('Klik kanan dinonaktifkan pada halaman ini.');
-}, false);
-*/
-
 // Mencegah kombinasi tombol umum untuk inspect element dan view source
+// Kecuali untuk perangkat iOS yang mengalami false positives
 document.addEventListener('keydown', (e) => {
+  // Skip untuk perangkat iOS
+  if (window.isIOSDevice) return true;
+  
   // Ctrl+U (View Source)
   if (e.ctrlKey && e.key === 'u') {
     e.preventDefault();
@@ -96,116 +99,19 @@ document.addEventListener('keydown', (e) => {
   return true;
 });
 
-// Mencegah DevTools dengan mendeteksi ukuran jendela
-const devToolsDetector = {
-  isOpen: false,
-  orientation: null,
-  
-  init() {
-    this.checkDevTools();
-    window.addEventListener('resize', this.checkDevTools.bind(this));
-  },
-  
-  checkDevTools() {
-    const threshold = 160;
-    const widthThreshold = window.outerWidth - window.innerWidth > threshold;
-    const heightThreshold = window.outerHeight - window.innerHeight > threshold;
-    
-    if (widthThreshold || heightThreshold) {
-      if (!this.isOpen) {
-        this.isOpen = true;
-        alert('DevTools terdeteksi. Silahkan tutup DevTools untuk melanjutkan.');
-        window.location.href = '/'; // Redirect ke homepage jika DevTools terbuka
-      }
-    } else {
-      this.isOpen = false;
-    }
-  }
-};
-
-// Tambahkan layer efek kabur dan pesan warning saat mencoba inspect
-(() => {
-  // CSS untuk overlay blur dan pesan
-  const style = document.createElement('style');
-  style.innerHTML = `
-    .devtools-detection-overlay {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(0, 0, 0, 0.9);
-      z-index: 9999;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      color: white;
-      font-size: 24px;
-      text-align: center;
-      backdrop-filter: blur(10px);
-    }
-    .devtools-detection-overlay button {
-      margin-top: 20px;
-      padding: 10px 20px;
-      background: #e53e3e;
-      color: white;
-      border: none;
-      border-radius: 5px;
-      cursor: pointer;
-    }
-  `;
-  document.head.appendChild(style);
-  
-  // Fungsi untuk menampilkan overlay dan redirect
-  function showDevToolsWarning() {
-    const overlay = document.createElement('div');
-    overlay.className = 'devtools-detection-overlay';
-    overlay.innerHTML = `
-      <h2>DevTools Terdeteksi!</h2>
-      <p>Penggunaan DevTools tidak diizinkan pada aplikasi ini.</p>
-      <button id="redirect-button">Kembali ke Beranda</button>
-    `;
-    document.body.appendChild(overlay);
-    
-    document.getElementById('redirect-button').addEventListener('click', () => {
-      window.location.href = '/';
-    });
-  }
-  
-  // Deteksi jika DevTools terbuka
-  let devToolsOpen = false;
-  
-  // Metode 1: Deteksi melalui console.log
-  const devTools = /./;
-  devTools.toString = function() {
-    if (!devToolsOpen) {
-      devToolsOpen = true;
-      showDevToolsWarning();
-    }
-    return '';
-  };
-  
-  // Cetak ke konsol sebagai jebakan
-  console.debug(devTools);
-  
-  // Metode 2: Deteksi melalui ukuran window
-  window.addEventListener('resize', function() {
-    const widthThreshold = window.outerWidth - window.innerWidth > 160;
-    const heightThreshold = window.outerHeight - window.innerHeight > 160;
-    
-    if (widthThreshold || heightThreshold) {
-      if (!devToolsOpen) {
-        devToolsOpen = true;
-        showDevToolsWarning();
-      }
-    }
-  });
-})();
-
-// Inisialisasi detector
-devToolsDetector.init();
+// PENTING: Hapus deteksi DevTools ukuran jendela yang sudah ada yang menyebabkan false positives di iOS
+// dan ganti dengan versi yang lebih cerdas yang memeriksa apakah ini adalah iOS terlebih dahulu
 
 // Pesan console untuk menyembunyikan pesan penting
 console.log('%c⚠️ Stop!', 'color: red; font-size: 30px; font-weight: bold;');
 console.log('%cHalaman ini dilindungi dan penggunaan DevTools dapat menimbulkan risiko keamanan.', 'font-size: 18px;');
+
+// Load script deteksi DevTools yang lebih baik yang tidak mengganggu perangkat iOS
+document.addEventListener('DOMContentLoaded', function() {
+  // Hanya muat script deteksi DevTools jika bukan perangkat iOS
+  if (!window.isIOSDevice) {
+    const script = document.createElement('script');
+    script.src = '/js/devtools-detection.js';
+    document.head.appendChild(script);
+  }
+});
