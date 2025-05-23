@@ -93,36 +93,51 @@ async function checkSubscription() {
     const subscriptionTitle = subscriptionInfo.querySelector('p.font-medium');
     const expiryDateElement = document.getElementById('expiry-date');
     
-    if (data.subscriptionType === 'Trial') {
-      // Untuk Trial, ubah warna ke biru dan tampilkan sebagai Trial Access
-      subscriptionInfo.classList.remove('bg-green-100', 'border-green-300');
+    if (data.subscriptionType === 'Lite') {
+      // Untuk Lite, ubah warna ke biru muda dan tampilkan sebagai Lite Access
+      subscriptionInfo.classList.remove('bg-green-100', 'border-green-300', 'bg-red-100', 'border-red-300');
       subscriptionInfo.classList.add('bg-blue-100', 'border-blue-300');
       
       const icon = subscriptionInfo.querySelector('svg');
-      icon.classList.remove('text-green-600');
+      icon.classList.remove('text-green-600', 'text-red-600');
       icon.classList.add('text-blue-600');
       
-      subscriptionTitle.classList.remove('text-green-800');
+      subscriptionTitle.classList.remove('text-green-800', 'text-red-800');
       subscriptionTitle.classList.add('text-blue-800');
-      subscriptionTitle.innerText = 'Trial Access';
+      subscriptionTitle.innerText = 'Lite Access';
       
-      expiryDateElement.classList.remove('text-green-700');
+      expiryDateElement.classList.remove('text-green-700', 'text-red-700');
       expiryDateElement.classList.add('text-blue-700');
-    } else {
-      // Untuk Premium atau tipe lain, gunakan warna hijau dan Premium Access
-      subscriptionInfo.classList.remove('bg-blue-100', 'border-blue-300');
+    } else if (data.subscriptionType === 'Standard') {
+      // Untuk Standard, ubah warna ke hijau dan tampilkan sebagai Standard Access
+      subscriptionInfo.classList.remove('bg-blue-100', 'border-blue-300', 'bg-red-100', 'border-red-300');
       subscriptionInfo.classList.add('bg-green-100', 'border-green-300');
       
       const icon = subscriptionInfo.querySelector('svg');
-      icon.classList.remove('text-blue-600');
+      icon.classList.remove('text-blue-600', 'text-red-600');
       icon.classList.add('text-green-600');
       
-      subscriptionTitle.classList.remove('text-blue-800');
+      subscriptionTitle.classList.remove('text-blue-800', 'text-red-800');
       subscriptionTitle.classList.add('text-green-800');
+      subscriptionTitle.innerText = 'Standard Access';
+      
+      expiryDateElement.classList.remove('text-blue-700', 'text-red-700');
+      expiryDateElement.classList.add('text-green-700');
+    } else {
+      // Untuk Premium atau tipe lain, gunakan warna merah dan Premium Access
+      subscriptionInfo.classList.remove('bg-blue-100', 'border-blue-300', 'bg-green-100', 'border-green-300');
+      subscriptionInfo.classList.add('bg-red-100', 'border-red-300');
+      
+      const icon = subscriptionInfo.querySelector('svg');
+      icon.classList.remove('text-blue-600', 'text-green-600');
+      icon.classList.add('text-red-600');
+      
+      subscriptionTitle.classList.remove('text-blue-800', 'text-green-800');
+      subscriptionTitle.classList.add('text-red-800');
       subscriptionTitle.innerText = 'Premium Access';
       
-      expiryDateElement.classList.remove('text-blue-700');
-      expiryDateElement.classList.add('text-green-700');
+      expiryDateElement.classList.remove('text-blue-700', 'text-green-700');
+      expiryDateElement.classList.add('text-red-700');
     }
     
     // Update expiry date text dengan format yang lebih manusiawi
