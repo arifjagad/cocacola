@@ -2,10 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const path = require('path');
 const cors = require('cors');
-const axios = require('axios');
-const cheerio = require('cheerio');
-const jsdom = require('jsdom');
-const { JSDOM } = jsdom;
+const puppeteer = require('puppeteer');
 const fetch = require('node-fetch');
 const { createClient } = require('@supabase/supabase-js');
 
@@ -61,262 +58,7 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// =================== NEW CHEERIO + AXIOS TOKEN EXTRACTION ===================
-
-// Helper function untuk membuat headers yang realistis
-function createRealisticHeaders() {
-  const userAgents = [
-    'Mozilla/5.0 (Linux; Android 11; SM-G998B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/94.0.4606.61 Mobile Safari/537.36',
-    'Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.0 Mobile/15E148 Safari/604.1',
-    'Mozilla/5.0 (Linux; Android 12; Pixel 5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/95.0.4638.74 Mobile Safari/537.36',
-    'Mozilla/5.0 (Android 11; Mobile; rv:94.0) Gecko/94.0 Firefox/94.0'
-  ];
-  
-  const randomUA = userAgents[Math.floor(Math.random() * userAgents.length)];
-  
-  return {
-    'User-Agent': randomUA,
-    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
-    'Accept-Language': 'id-ID,id;q=0.9,en;q=0.8',
-    'Accept-Encoding': 'gzip, deflate, br',
-    'DNT': '1',
-    'Connection': 'keep-alive',
-    'Upgrade-Insecure-Requests': '1',
-    'Sec-Fetch-Dest': 'document',
-    'Sec-Fetch-Mode': 'navigate',
-    'Sec-Fetch-Site': 'none',
-    'Cache-Control': 'max-age=0'
-  };
-}
-
-// Strategi 1: Cek di HTML statis untuk embedded scripts
-async function extractTokenFromStaticHTML(cocaColaLink) {
-  try {
-    console.log('Strategi 1: Mengecek HTML statis...');
-    
-    const response = await axios.get(cocaColaLink, {
-      headers: createRealisticHeaders(),
-      timeout: 30000,
-      maxRedirects: 5
-    });
-    
-    const $ = cheerio.load(response.data);
-    
-    // Cari di script tags
-    const scripts = $('script').toArray();
-    let authToken = null;
-    
-    for (let script of scripts) {
-      const content = $(script).html() || '';
-      
-      // Pattern untuk mencari authorization token
-      const patterns = [
-        /authorization['":\s]*["']([^"']+)["']/gi,
-        /auth[_-]?token['":\s]*["']([^"']+)["']/gi,
-        /bearer['":\s]*["']([^"']+)["']/gi,
-        /token['":\s]*["']([^"']+)["']/gi
-      ];
-      
-      for (let pattern of patterns) {
-        const matches = [...content.matchAll(pattern)];
-        if (matches.length > 0) {
-          authToken = matches[0][1];
-          console.log('Token ditemukan di script tag dengan pattern:', pattern);
-          break;
-        }
-      }
-      
-      if (authToken) break;
-    }
-    
-    // Cari di meta tags
-    if (!authToken) {
-      const metaTags = $('meta[name*="token"], meta[property*="token"], meta[content*="Bearer"]').toArray();
-      for (let meta of metaTags) {
-        const content = $(meta).attr('content');
-        if (content && content.length > 10) {
-          authToken = content;
-          console.log('Token ditemukan di meta tag');
-          break;
-        }
-      }
-    }
-    
-    // Cari di data attributes
-    if (!authToken) {
-      const dataElements = $('[data-token], [data-auth], [data-authorization]').toArray();
-      for (let elem of dataElements) {
-        const token = $(elem).attr('data-token') || $(elem).attr('data-auth') || $(elem).attr('data-authorization');
-        if (token && token.length > 10) {
-          authToken = token;
-          console.log('Token ditemukan di data attribute');
-          break;
-        }
-      }
-    }
-    
-    return authToken;
-    
-  } catch (error) {
-    console.error('Error di strategi 1:', error.message);
-    return null;
-  }
-}
-
-// Strategi 2: Simulasi JavaScript execution dengan JSDOM
-async function extractTokenWithJSDOM(cocaColaLink) {
-  try {
-    console.log('Strategi 2: Simulasi JavaScript dengan JSDOM...');
-    
-    const response = await axios.get(cocaColaLink, {
-      headers: createRealisticHeaders(),
-      timeout: 30000
-    });
-    
-    // Setup JSDOM dengan resource loading
-    const dom = new JSDOM(response.data, {
-      url: cocaColaLink,
-      runScripts: "dangerously",
-      resources: "usable",
-      pretendToBeVisual: true
-    });
-    
-    const window = dom.window;
-    const document = window.document;
-    
-    // Inject axios mock untuk menangkap requests
-    let capturedToken = null;
-    
-    // Mock axios di window
-    window.axios = {
-      create: () => ({
-        get: (url, config) => {
-          if (config && config.headers && config.headers.Authorization) {
-            capturedToken = config.headers.Authorization;
-            console.log('Token ditangkap dari axios config');
-          }
-          return Promise.resolve({ data: {} });
-        },
-        post: (url, data, config) => {
-          if (config && config.headers && config.headers.Authorization) {
-            capturedToken = config.headers.Authorization;
-            console.log('Token ditangkap dari axios config');
-          }
-          return Promise.resolve({ data: {} });
-        }
-      }),
-      get: (url, config) => {
-        if (config && config.headers && config.headers.Authorization) {
-          capturedToken = config.headers.Authorization;
-          console.log('Token ditangkap dari axios.get');
-        }
-        return Promise.resolve({ data: {} });
-      },
-      post: (url, data, config) => {
-        if (config && config.headers && config.headers.Authorization) {
-          capturedToken = config.headers.Authorization;
-          console.log('Token ditangkap dari axios.post');
-        }
-        return Promise.resolve({ data: {} });
-      }
-    };
-    
-    // Mock fetch
-    window.fetch = (url, options) => {
-      if (options && options.headers) {
-        const authHeader = options.headers.Authorization || options.headers.authorization;
-        if (authHeader) {
-          capturedToken = authHeader;
-          console.log('Token ditangkap dari fetch');
-        }
-      }
-      return Promise.resolve({
-        ok: true,
-        json: () => Promise.resolve({}),
-        text: () => Promise.resolve('')
-      });
-    };
-    
-    // Tunggu scripts berjalan
-    await new Promise(resolve => setTimeout(resolve, 8000));
-    
-    // Cek localStorage, sessionStorage, dan global variables
-    const storageToken = window.localStorage?.getItem('authToken') ||
-                        window.localStorage?.getItem('authorization') ||
-                        window.sessionStorage?.getItem('authToken') ||
-                        window.sessionStorage?.getItem('authorization') ||
-                        window.AUTH_TOKEN ||
-                        window.authToken ||
-                        window.authorization;
-    
-    const finalToken = capturedToken || storageToken;
-    
-    dom.window.close();
-    return finalToken;
-    
-  } catch (error) {
-    console.error('Error di strategi 2:', error.message);
-    return null;
-  }
-}
-
-// Strategi 3: Cari API endpoints dan coba akses langsung
-async function extractTokenFromAPIEndpoints(cocaColaLink) {
-  try {
-    console.log('Strategi 3: Mencari API endpoints...');
-    
-    const response = await axios.get(cocaColaLink, {
-      headers: createRealisticHeaders(),
-      timeout: 30000
-    });
-    
-    const $ = cheerio.load(response.data);
-    const allText = $.text();
-    
-    // Cari URL API yang mungkin
-    const apiPatterns = [
-      /https?:\/\/[^\s"']+grivy[^\s"']*/gi,
-      /https?:\/\/[^\s"']+api[^\s"']*/gi,
-      /https?:\/\/[^\s"']+cloudfunctions[^\s"']*/gi
-    ];
-    
-    const foundAPIs = [];
-    for (let pattern of apiPatterns) {
-      const matches = [...allText.matchAll(pattern)];
-      foundAPIs.push(...matches.map(m => m[0]));
-    }
-    
-    console.log('API endpoints ditemukan:', foundAPIs);
-    
-    // Coba akses API endpoints untuk mendapatkan struktur
-    for (let apiUrl of foundAPIs) {
-      try {
-        const apiResponse = await axios.get(apiUrl, {
-          headers: createRealisticHeaders(),
-          timeout: 10000
-        });
-        
-        // Analisa response untuk pattern token
-        const responseText = JSON.stringify(apiResponse.data);
-        const tokenMatch = responseText.match(/authorization['":\s]*["']([^"']+)["']/i);
-        if (tokenMatch) {
-          return tokenMatch[1];
-        }
-      } catch (apiError) {
-        // Ignore API errors, continue with next endpoint
-        continue;
-      }
-    }
-    
-    return null;
-    
-  } catch (error) {
-    console.error('Error di strategi 3:', error.message);
-    return null;
-  }
-}
-
-// Main extract token function dengan multiple strategies
+// Extract authorization token from Coca-Cola link
 app.post('/api/extract-token', async (req, res) => {
   try {
     const { cocaColaLink } = req.body;
@@ -329,47 +71,208 @@ app.post('/api/extract-token', async (req, res) => {
       });
     }
     
-    console.log(`Memulai ekstraksi token untuk: ${cocaColaLink}`);
+    console.log(`Starting token extraction for link: ${cocaColaLink}`);
     
-    let authToken = null;
+    // Konfigurasi Puppeteer yang lebih lengkap untuk lingkungan produksi
+    const launchOptions = {
+      headless: "new",
+      args: [
+        '--no-sandbox', 
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-accelerated-2d-canvas',
+        '--no-first-run',
+        '--no-zygote',
+        '--disable-gpu',
+        '--disable-software-rasterizer',
+        '--disable-background-timer-throttling',
+        '--disable-backgrounding-occluded-windows',
+        '--disable-renderer-backgrounding',
+        '--disable-features=TranslateUI',
+        '--disable-extensions',
+        '--disable-plugins',
+        '--disable-web-security',
+        '--disable-features=VizDisplayCompositor',
+        '--memory-pressure-off',
+        '--max_old_space_size=256', // Batasi Node.js memory
+        '--disable-ipc-flooding-protection',
+        '--window-size=800,600' // Ukuran window lebih kecil
+      ],
+      timeout: 90000, // Timeout lebih lama untuk server lambat
+      pipe: true // Gunakan pipe instead of WebSocket
+    };
     
-    // Coba strategi 1: HTML statis
-    authToken = await extractTokenFromStaticHTML(cocaColaLink);
+    console.log('Launching browser with options:', JSON.stringify(launchOptions));
+    const browser = await puppeteer.launch(launchOptions);
     
-    if (!authToken) {
-      // Coba strategi 2: JSDOM simulation
-      authToken = await extractTokenWithJSDOM(cocaColaLink);
-    }
-    
-    if (!authToken) {
-      // Coba strategi 3: API endpoints
-      authToken = await extractTokenFromAPIEndpoints(cocaColaLink);
-    }
-    
-    if (!authToken) {
-      console.log('Semua strategi gagal menemukan token');
-      return res.status(404).json({ 
-        success: false, 
-        error: 'Token not found', 
-        message: 'Could not extract authorization token from the link. Pastikan link coca-cola valid dan belum kadaluarsa.' 
+    try {
+      const page = await browser.newPage();
+      
+      // Set user agent untuk meniru browser mobile
+      await page.setUserAgent('Mozilla/5.0 (Linux; Android 11; SM-G998B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/94.0.4606.61 Mobile Safari/537.36');
+      
+      // Set viewport untuk meniru ukuran layar mobile
+      await page.setViewport({
+        width: 412,
+        height: 915,
+        deviceScaleFactor: 2.625,
+        isMobile: true,
+        hasTouch: true
       });
-    }
-    
-    // Validasi token (minimal check)
-    if (authToken.length < 10) {
-      console.log('Token terlalu pendek, kemungkinan bukan token valid');
-      return res.status(404).json({ 
-        success: false, 
-        error: 'Invalid token', 
-        message: 'Token yang ditemukan tidak valid' 
+      
+      console.log('Setting up request interception');
+      
+      // Enable request interception to capture network requests
+      await page.setRequestInterception(true);
+      
+      let authToken = null;
+      let requestsLogged = 0;
+      
+      // Listen for requests and capture the authorization token
+      page.on('request', request => {
+        const url = request.url();
+        const headers = request.headers();
+        
+        // Log setiap beberapa request untuk debugging
+        if (requestsLogged < 5 || requestsLogged % 20 === 0) {
+          console.log(`Request #${requestsLogged+1}: ${url.substring(0, 100)}...`);
+        }
+        requestsLogged++;
+        
+        // Look for the userCoupons request or any other API request
+        if (url.includes('userCoupons') || url.includes('grivy') || url.includes('redeem')) {
+          console.log('Found potential API request:', url);
+          console.log('Headers:', JSON.stringify(headers));
+          
+          if (headers.authorization) {
+            authToken = headers.authorization;
+            console.log('Extracted authorization token');
+          }
+        }
+        request.continue();
       });
+      
+      // Log semua respons untuk debugging
+      page.on('response', async (response) => {
+        const url = response.url();
+        if (url.includes('api') || url.includes('grivy')) {
+          console.log(`Response from ${url}: ${response.status()}`);
+          try {
+            const contentType = response.headers()['content-type'];
+            if (contentType && contentType.includes('application/json')) {
+              const data = await response.json();
+              console.log('Response data:', JSON.stringify(data).substring(0, 200) + '...');
+            }
+          } catch (e) {
+            console.log('Could not parse response as JSON');
+          }
+        }
+      });
+      
+      // Log console messages dari halaman
+      page.on('console', msg => console.log('PAGE LOG:', msg.text()));
+      
+      // Set a timeout to ensure we don't hang indefinitely
+      const timeout = setTimeout(async () => {
+        if (!authToken) {
+          console.log('Timeout reached without finding token');
+          await browser.close();
+          res.status(408).json({ 
+            success: false, 
+            error: 'Timeout', 
+            message: 'Timed out while trying to extract token' 
+          });
+        }
+      }, 40000); // Tambah timeout menjadi 40 detik
+      
+      console.log(`Navigating to: ${cocaColaLink}`);
+      
+      // Navigate to the page with longer timeout
+      await page.goto(cocaColaLink, { 
+        waitUntil: 'networkidle2', 
+        timeout: 35000  // 35 detik
+      });
+      
+      console.log('Page loaded, waiting for API calls');
+      
+      // Wait a bit longer for all requests to finish
+      await new Promise(resolve => setTimeout(resolve, 8000));
+      
+      clearTimeout(timeout);
+      
+      if (!authToken) {
+        // Coba klik tombol pada halaman untuk memicu request
+        console.log('Token not found initially, trying to interact with page');
+        
+        // Ambil screenshot untuk debugging
+        const screenshot = await page.screenshot({encoding: 'base64'});
+        console.log('Page screenshot (base64):', screenshot.substring(0, 100) + '...');
+        
+        // Tampilkan HTML halaman untuk debugging
+        const pageContent = await page.content();
+        console.log('Page HTML:', pageContent.substring(0, 500) + '...');
+        
+        try {
+          // Klik pada elemen yang mungkin memicu API calls
+          await page.evaluate(() => {
+            console.log('Clicking on buttons');
+            // Click on elements that might trigger API calls
+            document.querySelectorAll('button, a.btn, [role="button"], .clickable, .button').forEach(el => {
+              console.log('Clicking element:', el.outerHTML);
+              el.click();
+            });
+            
+            // Coba interaksi dengan elemen input
+            document.querySelectorAll('input').forEach(input => {
+              console.log('Focusing input:', input.outerHTML);
+              input.focus();
+              input.blur();
+            });
+          });
+          
+          // Wait for potential network activity
+          await new Promise(resolve => setTimeout(resolve, 5000));
+          
+          // Jika masih tidak ada token, coba scrolling halaman
+          if (!authToken) {
+            await page.evaluate(() => {
+              window.scrollTo(0, document.body.scrollHeight / 2);
+              setTimeout(() => {
+                window.scrollTo(0, document.body.scrollHeight);
+              }, 500);
+            });
+            
+            // Wait more
+            await new Promise(resolve => setTimeout(resolve, 3000));
+          }
+        } catch (interactionError) {
+          console.error('Error during page interaction:', interactionError);
+        }
+      }
+      
+      await browser.close();
+      
+      if (!authToken) {
+        console.log('Failed to extract token after all attempts');
+        return res.status(404).json({ 
+          success: false, 
+          error: 'Token not found', 
+          message: 'Could not extract authorization token from the link. Pastikan link coca-cola valid dan belum kadaluarsa.' 
+        });
+      }
+      
+      // Return the token
+      console.log('Successfully extracted token');
+      return res.json({ 
+        success: true, 
+        token: authToken 
+      });
+      
+    } catch (error) {
+      console.error('Error during token extraction process:', error);
+      await browser.close();
+      throw error;
     }
-    
-    console.log('Token berhasil diekstrak, panjang:', authToken.length);
-    return res.json({ 
-      success: true, 
-      token: authToken 
-    });
     
   } catch (error) {
     console.error('Error extracting token:', error);
@@ -380,66 +283,6 @@ app.post('/api/extract-token', async (req, res) => {
     });
   }
 });
-
-// =================== FALLBACK: Manual Token Input ===================
-
-// Endpoint backup jika automatic extraction gagal
-app.post('/api/extract-token-manual', async (req, res) => {
-  try {
-    const { cocaColaLink, manualToken } = req.body;
-    
-    if (manualToken) {
-      // User provide manual token
-      return res.json({ 
-        success: true, 
-        token: manualToken,
-        method: 'manual'
-      });
-    }
-    
-    // Coba extract dengan method sederhana
-    const response = await axios.get(cocaColaLink, {
-      headers: createRealisticHeaders(),
-      timeout: 15000
-    });
-    
-    const html = response.data;
-    
-    // Simple regex search in HTML
-    const tokenPatterns = [
-      /Bearer\s+([A-Za-z0-9\-._~+\/]+=*)/gi,
-      /authorization['":\s]*["']([^"']+)["']/gi,
-      /auth-token['":\s]*["']([^"']+)["']/gi
-    ];
-    
-    for (let pattern of tokenPatterns) {
-      const match = html.match(pattern);
-      if (match && match[1]) {
-        return res.json({ 
-          success: true, 
-          token: match[1],
-          method: 'simple_regex'
-        });
-      }
-    }
-    
-    return res.status(404).json({ 
-      success: false, 
-      error: 'Token not found with simple method',
-      message: 'Silakan masukkan token secara manual atau gunakan browser extension untuk mendapatkan token'
-    });
-    
-  } catch (error) {
-    console.error('Error in manual extraction:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: 'Server error', 
-      message: error.message 
-    });
-  }
-});
-
-// =================== REST OF THE CODE REMAINS THE SAME ===================
 
 // SSE endpoint for attempt tracking
 app.get('/api/attempt-events', (req, res) => {
@@ -601,7 +444,6 @@ app.post('/api/claim', async (req, res) => {
   }
 });
 
-// [REST OF YOUR EXISTING ENDPOINTS - COPY SEMUA ENDPOINT LAINNYA DARI KODE ASLI ANDA]
 // Serve claim page when a code is provided
 app.get('/claim', (req, res) => {
   const accessCode = req.query.code;
@@ -1710,5 +1552,4 @@ app.get('/admin/devices/:adminToken', (req, res) => {
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`Visit http://localhost:${PORT} to access the application`);
-  console.log('Using Cheerio + Axios for token extraction (lightweight alternative to Puppeteer)');
 });
