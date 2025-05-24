@@ -275,6 +275,7 @@ app.get('/api/attempt-events', (req, res) => {
 });
 
 // Claim code endpoint
+// Claim code endpoint
 app.post('/api/claim', async (req, res) => {
   try {
     const { packagingCode, authorization } = req.body;
@@ -290,9 +291,9 @@ app.post('/api/claim', async (req, res) => {
         publicCode: "tccc-coke-utc-2025-main",
         packagingCode: packagingCode,
         domain: "ayo_coca_cola",
-        terms_conditions_01: null,
-        terms_conditions_02: null,
-        terms_conditions_03: null
+        terms_conditions_01: false,
+        terms_conditions_02: true,
+        terms_conditions_03: false
       }
     };
 
@@ -300,7 +301,9 @@ app.post('/api/claim', async (req, res) => {
       "Content-Type": "application/json",
       "Authorization": authorization,
       "Referer": "https://ayo.coca-cola.co.id/",
-      "User-Agent": "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Mobile Safari/537.36"
+      "User-Agent": "Mozilla/5.0 (Linux; Android 11; SM-G998B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/94.0.4606.61 Mobile Safari/537.36",
+      "Accept": "application/json, text/plain, */*",
+      "Origin": "https://ayo.coca-cola.co.id"
     };
 
     // Increased max attempts from 10 to 25
@@ -324,12 +327,47 @@ app.post('/api/claim', async (req, res) => {
         
         if (response.status === 429) {
           // Rate limit hit, will retry after delay
-          await new Promise(resolve => setTimeout(resolve, 1000)); // 1 second delay
+          await new Promise(resolve => setTimeout(resolve, 2000)); // 2 second delay
+          continue;
+        }
+
+        // Check content type before trying to parse JSON
+        const contentType = response.headers.get('content-type');
+        
+        if (!contentType || !contentType.includes('application/json')) {
+          console.log(`Received non-JSON response (${contentType}) on attempt ${attemptCount}`);
+          
+          // Get the text to see what's wrong
+          const text = await response.text();
+          console.log(`Response starts with: ${text.substring(0, 100)}`);
+          
+          // If it's a server error, wait and retry
+          if (response.status >= 500) {
+            await new Promise(resolve => setTimeout(resolve, 3000));
+            continue;
+          }
+          
+          // If it's a client error but not 429 (which we handled above)
+          if (response.status >= 400 && response.status < 500) {
+            // Wait a bit longer and try again
+            await new Promise(resolve => setTimeout(resolve, 2500));
+            continue;
+          }
+          
+          // For other non-JSON responses, wait and retry
+          await new Promise(resolve => setTimeout(resolve, 2000));
           continue;
         }
         
-        const result = await response.json();
-        finalResult = result;
+        let result;
+        try {
+          result = await response.json();
+          finalResult = result;
+        } catch (jsonError) {
+          console.error(`JSON parse error: ${jsonError.message}`);
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          continue;
+        }
         
         if (result.error) {
           if (result.error.message === 'coupons_limit_daily' && result.error.status === 'OUT_OF_RANGE') {
@@ -361,7 +399,7 @@ app.post('/api/claim', async (req, res) => {
             });
           }
           // Other error, will retry until max attempts
-          await new Promise(resolve => setTimeout(resolve, 1000)); // 1 second delay
+          await new Promise(resolve => setTimeout(resolve, 1500)); // 1.5 second delay
         } else {
           // Success! Stop attempts and return the result immediately
           success = true;
@@ -390,7 +428,9 @@ app.post('/api/claim', async (req, res) => {
         }
       } catch (error) {
         console.error(`Attempt ${attemptCount} failed:`, error);
-        await new Promise(resolve => setTimeout(resolve, 1000)); // 1 second delay on error
+        
+        // Wait longer between attempts to avoid overwhelming the server
+        await new Promise(resolve => setTimeout(resolve, 2000 + (attemptCount * 200))); 
       }
     }
     
@@ -398,7 +438,7 @@ app.post('/api/claim', async (req, res) => {
     return res.json({
       success: false,
       status: 'MAX_ATTEMPTS',
-      message: `Mencapai batas maksimum ${maxAttempts} percobaan tanpa keberhasilan`,
+      message: `Mencapai batas maksimum ${maxAttempts} percobaan tanpa keberhasilan. Server Coca-Cola mungkin sedang maintenance.`,
       attempts: attemptCount,
       result: finalResult
     });
