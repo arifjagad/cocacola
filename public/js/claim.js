@@ -1,13 +1,16 @@
-// **OPTIMIZATION 19: Enhanced toast with better performance**
+// Toast notification function
 function showToast(message, type = 'info') {
+  // Remove existing toast if present
   const existingToast = document.getElementById('toast-notification');
   if (existingToast) {
     existingToast.remove();
   }
   
+  // Create toast element
   const toast = document.createElement('div');
   toast.id = 'toast-notification';
   
+  // Set styles based on type
   let bgColor, textColor, icon;
   switch (type) {
     case 'error':
@@ -32,6 +35,7 @@ function showToast(message, type = 'info') {
               </svg>`;
   }
   
+  // Apply classes and add content
   toast.className = `fixed top-4 right-4 z-50 max-w-xs shadow-lg rounded-lg flex items-center p-4 ${bgColor} ${textColor} transform transition-all duration-300 ease-in-out`;
   toast.innerHTML = `
     <div class="flex items-center">
@@ -45,12 +49,15 @@ function showToast(message, type = 'info') {
     </button>
   `;
   
+  // Add to DOM
   document.body.appendChild(toast);
   
-  requestAnimationFrame(() => {
+  // Add entrance animation
+  setTimeout(() => {
     toast.style.transform = 'translateX(0)';
-  });
+  }, 10);
   
+  // Auto-remove after 5 seconds
   setTimeout(() => {
     if (document.body.contains(toast)) {
       toast.style.opacity = '0';
@@ -63,20 +70,18 @@ function showToast(message, type = 'info') {
   }, 5000);
 }
 
-// **OPTIMIZATION 20: Enhanced token extraction with better error handling**
+// Function to extract token from Coca-Cola link
 async function extractToken(cocaColaLink) {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second total timeout
-  
   try {
     const tokenStatus = document.getElementById('token-status');
     const extractionAttempt = document.getElementById('extraction-attempt');
     tokenStatus.classList.remove('hidden');
     
+    // Start a counter to show how long we've been trying
     let seconds = 0;
     const extractionTimer = setInterval(() => {
       seconds++;
-      extractionAttempt.textContent = `Proses berlangsung ${seconds} detik...`;
+      extractionAttempt.textContent = `Percobaan sedang berlangsung selama ${seconds} detik...`;
     }, 1000);
     
     const response = await fetch('/api/extract-token', {
@@ -84,67 +89,68 @@ async function extractToken(cocaColaLink) {
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ cocaColaLink }),
-      signal: controller.signal
+      body: JSON.stringify({ cocaColaLink })
     });
     
+    // Clear the timer
     clearInterval(extractionTimer);
-    clearTimeout(timeoutId);
     
     if (!response.ok) {
       const errorData = await response.json();
-      throw new Error(errorData.message || `Gagal mengambil token: ${response.status}`);
+      throw new Error(errorData.message || `Gagal mengambil kode: ${response.status}`);
     }
     
     const data = await response.json();
     tokenStatus.classList.add('hidden');
     
     if (!data.success) {
-      throw new Error(data.message || 'Gagal mengambil token dari userCoupons request');
+      throw new Error(data.message || 'Gagal mengambil kode akses dari link');
     }
     
     return data.token;
   } catch (error) {
-    clearTimeout(timeoutId);
     document.getElementById('token-status').classList.add('hidden');
-    
-    if (error.name === 'AbortError') {
-      throw new Error('Timeout: Proses mengambil token terlalu lama');
-    }
     throw error;
   }
 }
 
-// **OPTIMIZATION 21: Enhanced success message detection**
+// Function to determine the success message based on the response data
 function getSuccessMessage(responseData) {
   try {
-    // Enhanced parsing for different response structures
-    const checkPaths = [
-      'parsedData.result.campaign_public_settings.public_name',
-      'result.campaign_public_settings.public_name',
-      'data.campaign_public_settings.public_name'
-    ];
-    
-    let publicName = null;
-    
-    for (const path of checkPaths) {
-      const value = path.split('.').reduce((obj, key) => obj?.[key], responseData);
-      if (value) {
-        publicName = value;
-        break;
+    // First check in the result.result structure (when data is in a nested format)
+    if (responseData && 
+        responseData.parsedData && 
+        responseData.parsedData.result && 
+        responseData.parsedData.result.campaign_public_settings && 
+        responseData.parsedData.result.campaign_public_settings.public_name) {
+      
+      const publicName = responseData.parsedData.result.campaign_public_settings.public_name;
+      
+      // Check for specific public_name values
+      if (publicName === "public-ayo-cola-utc-cinepolis-b1f1") {
+        return "Mendapatkan Voucher Cinepolis B1G1";
+      } else if (publicName === "public-ayo-cola-utc-cinepolis-free") {
+        return "Mendapatkan 1 Voucher Gratis Cinepolis";
       }
     }
     
-    if (publicName) {
-      const messageMap = {
-        'public-ayo-cola-utc-cinepolis-b1f1': 'Mendapatkan Voucher Cinepolis B1G1',
-        'public-ayo-cola-utc-cinepolis-free': 'Mendapatkan 1 Voucher Gratis Cinepolis',
-        'public-ayo-cola-utc-main': 'Berhasil claim voucher utama'
-      };
+    // Also check directly in the response structure (when data is directly in result)
+    if (responseData && 
+        responseData.result && 
+        responseData.result.campaign_public_settings && 
+        responseData.result.campaign_public_settings.public_name) {
       
-      return messageMap[publicName] || 'Berhasil claim voucher';
+      const publicName = responseData.result.campaign_public_settings.public_name;
+      
+      // Check for specific public_name values
+      if (publicName === "public-ayo-cola-utc-cinepolis-b1f1") {
+        return "Mendapatkan Voucher Cinepolis B1G1";
+      } else if (publicName === "public-ayo-cola-utc-cinepolis-free") {
+        return "Mendapatkan 1 Voucher Gratis Cinepolis";
+      }
     }
     
+    // Default case - return a generic success message
     return "Berhasil claim kode";
   } catch (error) {
     console.error("Error parsing success message:", error);
@@ -152,28 +158,22 @@ function getSuccessMessage(responseData) {
   }
 }
 
-// **OPTIMIZATION 22: Enhanced claim function with better error handling and retry logic**
+// Function to claim a single code via API
 async function claimCode(packagingCode, authorization, codeIndex = 0, totalCodes = 1) {
-  let eventSource = null;
-  
   try {
-    // Input validation
-    if (!packagingCode || !authorization) {
-      throw new Error('Kode kemasan dan authorization diperlukan');
-    }
-    
+    // Get DOM elements for updating UI
     const resultDisplay = document.getElementById('result-display');
     const attemptCounter = document.getElementById('attempt-counter');
     const progressBar = document.getElementById('progress-bar');
     
-    // Update batch progress
+    // Update batch progress if we have multiple codes
     if (totalCodes > 1) {
       document.getElementById('batch-progress').classList.remove('hidden');
       document.getElementById('current-code-number').textContent = codeIndex + 1;
       document.getElementById('total-codes-number').textContent = totalCodes;
     }
     
-    // Update code badge
+    // Update the corresponding code badge if we can find it
     const codeElements = document.querySelectorAll('.packaging-code');
     if (codeElements[codeIndex]) {
       const badgeElement = codeElements[codeIndex].nextElementSibling;
@@ -181,91 +181,76 @@ async function claimCode(packagingCode, authorization, codeIndex = 0, totalCodes
       badgeElement.className = "ml-2 code-badge badge-processing";
     }
     
+    // Update UI to show we're starting with this specific code
     attemptCounter.textContent = `Memproses kode ${codeIndex + 1}/${totalCodes}: ${packagingCode}`;
     
-    // Create realtime status display
+    // Create a realtime attempt status display that will be updated
     const realtimeStatusDiv = document.createElement('div');
     realtimeStatusDiv.id = `realtime-status-${codeIndex}`;
     realtimeStatusDiv.className = 'p-2 mb-2 bg-blue-100 text-blue-800 rounded';
-    realtimeStatusDiv.innerHTML = `<span class="font-medium">Kode ${codeIndex + 1}: ${packagingCode} - Memulai...</span>`;
+    realtimeStatusDiv.innerHTML = `<span class="font-medium">Kode ${codeIndex + 1}: ${packagingCode} - Sedang memproses...</span>`;
     resultDisplay.prepend(realtimeStatusDiv);
     
-    // **OPTIMIZATION 23: Enhanced SSE with better error handling**
-    let retryCount = 0;
-    const maxRetries = 3;
+    // Set up event source for real-time updates
+    const eventSource = new EventSource('/api/attempt-events');
     
-    const setupEventSource = () => {
-      eventSource = new EventSource('/api/attempt-events');
-      
-      eventSource.onmessage = function(event) {
-        try {
-          const data = JSON.parse(event.data);
-          if (data.attempt) {
-            const attemptNum = data.attempt;
-            realtimeStatusDiv.innerHTML = `<span class="font-medium">Kode ${codeIndex + 1}: ${packagingCode} - Percobaan ke-${attemptNum}/25</span>`;
-            attemptCounter.textContent = `Kode ${codeIndex + 1}/${totalCodes}: ${packagingCode} - Percobaan ke-${attemptNum}/25`;
-            
-            const attemptProgress = Math.min(10 + (attemptNum / 25) * 70, 85);
-            progressBar.style.width = `${attemptProgress}%`;
-          }
-        } catch (e) {
-          console.error('Error parsing SSE data:', e);
+    // Update the UI with each attempt
+    eventSource.onmessage = function(event) {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.attempt) {
+          const attemptNum = data.attempt;
+          
+          // Update the realtime status display
+          realtimeStatusDiv.innerHTML = `<span class="font-medium">Kode ${codeIndex + 1}: ${packagingCode} - Percobaan ke-${attemptNum}/25</span>`;
+          
+          // Update the progress counter
+          attemptCounter.textContent = `Kode ${codeIndex + 1}/${totalCodes}: ${packagingCode} - Percobaan ke-${attemptNum}/25`;
+          
+          // Calculate progress based on max 25 attempts
+          const attemptProgress = Math.min(10 + (attemptNum / 25) * 70, 85);
+          progressBar.style.width = `${attemptProgress}%`;
         }
-      };
-      
-      eventSource.onerror = function(event) {
-        console.log('SSE connection error, retrying...', retryCount);
-        eventSource.close();
-        
-        if (retryCount < maxRetries) {
-          retryCount++;
-          setTimeout(setupEventSource, 1000 * retryCount); // Exponential backoff
-        }
-      };
-      
-      eventSource.onopen = function() {
-        retryCount = 0; // Reset on successful connection
-      };
+      } catch (e) {
+        console.error('Error parsing SSE data:', e);
+      }
     };
     
-    setupEventSource();
+    eventSource.onerror = function() {
+      console.log('SSE connection closed or errored');
+      eventSource.close();
+    };
     
-    // **OPTIMIZATION 24: Enhanced API call with timeout and retry**
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 45000); // 45 second timeout
-    
+    // Make API call to our Express backend
     const response = await fetch('/api/claim', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        packagingCode: packagingCode.trim(),
+        packagingCode,
         authorization
-      }),
-      signal: controller.signal
+      })
     });
     
-    clearTimeout(timeoutId);
+    // Close the event source
+    eventSource.close();
     
     if (!response.ok) {
-      throw new Error(`Server error: ${response.status}`);
+      throw new Error(`Server merespon dengan status: ${response.status}`);
     }
     
     const result = await response.json();
     
-    // Cleanup
-    if (eventSource) {
-      eventSource.close();
-    }
-    
+    // Remove the realtime status div
     if (document.getElementById(`realtime-status-${codeIndex}`)) {
       document.getElementById(`realtime-status-${codeIndex}`).remove();
     }
     
+    // Remove pulsing animation from progress bar
     progressBar.classList.remove('animate-pulse');
     
-    // Update progress bar
+    // Update progress bar based on result
     const progressPercent = result.success ? 
       ((codeIndex + 1) / totalCodes) * 100 : 
       ((codeIndex) / totalCodes) * 100 + (1 / totalCodes) * 30;
@@ -274,468 +259,364 @@ async function claimCode(packagingCode, authorization, codeIndex = 0, totalCodes
     // Create result entry
     const logEntry = document.createElement('div');
     
-    // Update badge
-   if (codeElements[codeIndex]) {
-     const badgeElement = codeElements[codeIndex].nextElementSibling;
-     
-     if (result.success) {
-       badgeElement.textContent = "Berhasil";
-       badgeElement.className = "ml-2 code-badge badge-success";
-     } else {
-       badgeElement.textContent = "Gagal";
-       badgeElement.className = "ml-2 code-badge badge-failed";
-     }
-   }
-   
-   if (result.success) {
-     const successMessage = getSuccessMessage(result.result);
-     
-     logEntry.className = 'p-2 mb-2 bg-green-100 text-green-800 rounded';
-     logEntry.innerHTML = `
-       <strong>Kode ${codeIndex + 1}: ${packagingCode} - ${successMessage}</strong>
-       <br><span class="text-xs">(Berhasil pada percobaan ke-${result.attempts})</span>
-       <br><details class="mt-1">
-         <summary class="cursor-pointer text-xs">Lihat Detail</summary>
-         <pre class="mt-1 text-xs overflow-auto">${JSON.stringify(result.result, null, 2)}</pre>
-       </details>
-     `;
-     
-     if (codeIndex === totalCodes - 1 || totalCodes === 1) {
-       showToast(`${successMessage} (Percobaan ke-${result.attempts})`, 'success');
-     }
-   } else {
-     // **OPTIMIZATION 25: Enhanced error handling**
-     const errorHandlers = {
-       'LIMIT_REACHED': () => {
-         logEntry.className = 'p-2 mb-2 bg-red-100 text-red-800 rounded';
-         logEntry.innerHTML = `<strong>Kode ${codeIndex + 1}: ${packagingCode} - ⚠️ ${result.message}</strong>`;
-       },
-       'INVALID_CODE': () => {
-         logEntry.className = 'p-2 mb-2 bg-red-100 text-red-800 rounded';
-         logEntry.innerHTML = `<strong>Kode ${codeIndex + 1}: ${packagingCode} - ❌ ${result.message}</strong>`;
-       },
-       'INVALID_ARGUMENT': () => {
-         const isCodeUsed = result.result?.error?.message === 'packaging_code_used';
-         logEntry.className = isCodeUsed ? 'p-2 mb-2 bg-orange-100 text-orange-800 rounded' : 'p-2 mb-2 bg-red-100 text-red-800 rounded';
-         const message = isCodeUsed ? 'Kode sudah digunakan' : result.message;
-         logEntry.innerHTML = `<strong>Kode ${codeIndex + 1}: ${packagingCode} - ⚠️ ${message}</strong>`;
-       },
-       'MAX_ATTEMPTS': () => {
-         const isCodeUsed = result.result?.error?.message === 'packaging_code_used';
-         logEntry.className = 'p-2 mb-2 bg-yellow-100 text-yellow-800 rounded';
-         const message = isCodeUsed ? 'Kode sudah digunakan' : result.message;
-         logEntry.innerHTML = `<strong>Kode ${codeIndex + 1}: ${packagingCode} - ⚠️ ${message}</strong><br><span class="text-xs">(${result.attempts} percobaan)</span>`;
-       }
-     };
-     
-     const handler = errorHandlers[result.status];
-     if (handler) {
-       handler();
-     } else {
-       logEntry.className = 'p-2 mb-2 bg-red-100 text-red-800 rounded';
-       logEntry.innerHTML = `
-         <strong>Kode ${codeIndex + 1}: ${packagingCode} - Error:</strong>
-         <br><details class="mt-1">
-           <summary class="cursor-pointer text-xs">Lihat Detail</summary>
-           <pre class="mt-1 text-xs overflow-auto">${JSON.stringify(result, null, 2)}</pre>
-         </details>
-       `;
-     }
-     
-     if (codeIndex === totalCodes - 1 || totalCodes === 1) {
-       const errorMessage = result.result?.error?.message === 'packaging_code_used' ? 
-         'Kode sudah digunakan' : result.message;
-       showToast(errorMessage, 'error');
-     }
-   }
-   
-   resultDisplay.prepend(logEntry);
-   return result;
-   
- } catch (error) {
-   console.error('Error claiming code:', error);
-   
-   // Cleanup on error
-   if (eventSource) {
-     eventSource.close();
-   }
-   
-   const resultDisplay = document.getElementById('result-display');
-   const logEntry = document.createElement('div');
-   logEntry.className = 'p-2 mb-2 bg-red-100 text-red-800 rounded';
-   
-   let errorMessage = error.message;
-   if (error.name === 'AbortError') {
-     errorMessage = 'Timeout: Proses claim terlalu lama';
-   }
-   
-   logEntry.textContent = `Error pada kode ${codeIndex + 1}: ${errorMessage}`;
-   resultDisplay.prepend(logEntry);
-   
-   const codeElements = document.querySelectorAll('.packaging-code');
-   if (codeElements[codeIndex]) {
-     const badgeElement = codeElements[codeIndex].nextElementSibling;
-     badgeElement.textContent = "Error";
-     badgeElement.className = "ml-2 code-badge badge-failed";
-   }
-   
-   if (codeIndex === totalCodes - 1 || totalCodes === 1) {
-     showToast(`Error: ${errorMessage}`, 'error');
-   }
-   
-   return null;
- }
+    // Update the corresponding code badge if we can find it
+    if (codeElements[codeIndex]) {
+      const badgeElement = codeElements[codeIndex].nextElementSibling;
+      
+      if (result.success) {
+        badgeElement.textContent = "Berhasil";
+        badgeElement.className = "ml-2 code-badge badge-success";
+      } else {
+        badgeElement.textContent = "Gagal";
+        badgeElement.className = "ml-2 code-badge badge-failed";
+      }
+    }
+    
+    if (result.success) {
+      // Success case - Get custom message based on response data
+      const successMessage = getSuccessMessage(result.result);
+      
+      logEntry.className = 'p-2 mb-2 bg-green-100 text-green-800 rounded';
+      logEntry.innerHTML = `<strong>Kode ${codeIndex + 1}: ${packagingCode} - ${successMessage}</strong><br><span class="text-xs">(Berhasil pada percobaan ke-${result.attempts})</span><br><details class="mt-1"><summary class="cursor-pointer text-xs">Lihat Detail</summary><pre class="mt-1 text-xs overflow-auto">${JSON.stringify(result.result, null, 2)}</pre></details>`;
+      
+      if (codeIndex === totalCodes - 1 || totalCodes === 1) {
+        // Only show toast for single code or the last code in batch
+        showToast(`${successMessage} (Percobaan ke-${result.attempts})`, 'success');
+      }
+    } else {
+      // Error case
+      switch (result.status) {
+        case 'LIMIT_REACHED':
+          logEntry.className = 'p-2 mb-2 bg-red-100 text-red-800 rounded';
+          logEntry.innerHTML = `<strong>Kode ${codeIndex + 1}: ${packagingCode} - ⚠️ ${result.message}</strong>`;
+          if (codeIndex === totalCodes - 1 || totalCodes === 1) {
+            showToast(result.message, 'error');
+          }
+          break;
+        case 'INVALID_CODE':
+          logEntry.className = 'p-2 mb-2 bg-red-100 text-red-800 rounded';
+          logEntry.innerHTML = `<strong>Kode ${codeIndex + 1}: ${packagingCode} - ❌ ${result.message}</strong>`;
+          if (codeIndex === totalCodes - 1 || totalCodes === 1) {
+            showToast(result.message, 'error');
+          }
+          break;
+        case 'INVALID_ARGUMENT':
+          // Check for the specific error message "packaging_code_used"
+          if (result.result && result.result.error && result.result.error.message === 'packaging_code_used') {
+            logEntry.className = 'p-2 mb-2 bg-orange-100 text-orange-800 rounded';
+            logEntry.innerHTML = `<strong>Kode ${codeIndex + 1}: ${packagingCode} - ⚠️ Kode sudah digunakan</strong>`;
+            if (codeIndex === totalCodes - 1 || totalCodes === 1) {
+              showToast('Kode sudah digunakan', 'error');
+            }
+          } else {
+            logEntry.className = 'p-2 mb-2 bg-red-100 text-red-800 rounded';
+            logEntry.innerHTML = `<strong>Kode ${codeIndex + 1}: ${packagingCode} - ❌ ${result.message}</strong>`;
+            if (codeIndex === totalCodes - 1 || totalCodes === 1) {
+              showToast(result.message, 'error');
+            }
+          }
+          break;
+        case 'MAX_ATTEMPTS':
+          logEntry.className = 'p-2 mb-2 bg-yellow-100 text-yellow-800 rounded';
+          logEntry.innerHTML = `<strong>Kode ${codeIndex + 1}: ${packagingCode} - ⚠️ ${result.message}</strong><br><span class="text-xs">(${result.attempts} percobaan)</span>`;
+          if (codeIndex === totalCodes - 1 || totalCodes === 1) {
+            showToast(result.message, 'error');
+          }
+          // Check if there's a "packaging_code_used" error in the final result after max attempts
+          if (result.result && result.result.error && result.result.error.message === 'packaging_code_used') {
+            logEntry.innerHTML = `<strong>Kode ${codeIndex + 1}: ${packagingCode} - ⚠️ Kode sudah digunakan</strong><br><span class="text-xs">(${result.attempts} percobaan)</span>`;
+            if (codeIndex === totalCodes - 1 || totalCodes === 1) {
+              showToast('Kode sudah digunakan', 'error');
+            }
+          }
+          break;
+        default:
+          logEntry.className = 'p-2 mb-2 bg-red-100 text-red-800 rounded';
+          logEntry.innerHTML = `<strong>Kode ${codeIndex + 1}: ${packagingCode} - Error:</strong><br><details class="mt-1"><summary class="cursor-pointer text-xs">Lihat Detail</summary><pre class="mt-1 text-xs overflow-auto">${JSON.stringify(result, null, 2)}</pre></details>`;
+          if (codeIndex === totalCodes - 1 || totalCodes === 1) {
+            showToast('Terjadi kesalahan saat memproses permintaan', 'error');
+          }
+      }
+    }
+    
+    // Add the result to the display
+    resultDisplay.prepend(logEntry);
+    
+    return result;
+  } catch (error) {
+    console.error('Error claiming code:', error);
+    
+    // Show error in the result display
+    const resultDisplay = document.getElementById('result-display');
+    const logEntry = document.createElement('div');
+    logEntry.className = 'p-2 mb-2 bg-red-100 text-red-800 rounded';
+    logEntry.textContent = `Error pada kode ${codeIndex + 1}: ${error.message}`;
+    resultDisplay.prepend(logEntry);
+    
+    // Update badge if possible
+    const codeElements = document.querySelectorAll('.packaging-code');
+    if (codeElements[codeIndex]) {
+      const badgeElement = codeElements[codeIndex].nextElementSibling;
+      badgeElement.textContent = "Error";
+      badgeElement.className = "ml-2 code-badge badge-failed";
+    }
+    
+    // Update toast
+    if (codeIndex === totalCodes - 1 || totalCodes === 1) {
+      showToast(`Error: ${error.message}`, 'error');
+    }
+    
+    return null;
+  }
 }
 
-// **OPTIMIZATION 26: Enhanced batch processing with better error recovery**
+// New function to process multiple codes sequentially
 async function processMultipleCodes(codes, token) {
- const totalCodes = codes.length;
- const progressBar = document.getElementById('progress-bar');
- const attemptCounter = document.getElementById('attempt-counter');
- 
- progressBar.style.width = '0%';
- attemptCounter.textContent = `Mempersiapkan ${totalCodes} kode...`;
- 
- let successCount = 0;
- let errorCount = 0;
- 
- for (let i = 0; i < codes.length; i++) {
-   const code = codes[i].trim();
-   if (code) {
-     try {
-       const result = await claimCode(code, token, i, totalCodes);
-       if (result?.success) {
-         successCount++;
-       } else {
-         errorCount++;
-       }
-     } catch (error) {
-       errorCount++;
-       console.error(`Failed to process code ${i + 1}:`, error);
-     }
-     
-     // **OPTIMIZATION 27: Add small delay between codes to prevent overwhelming**
-     if (i < codes.length - 1) {
-       await new Promise(resolve => setTimeout(resolve, 500));
-     }
-   }
- }
- 
- progressBar.style.width = '100%';
- 
- // **OPTIMIZATION 28: Enhanced completion summary**
- const summaryMessage = `Selesai! ${successCount} berhasil, ${errorCount} gagal dari ${totalCodes} kode`;
- attemptCounter.textContent = summaryMessage;
- 
- document.getElementById('batch-progress').classList.add('hidden');
- 
- const startButton = document.getElementById('start-button');
- startButton.disabled = false;
- startButton.textContent = 'Mulai Claim';
- 
- // Show completion toast
- if (successCount > 0) {
-   showToast(summaryMessage, 'success');
- } else if (errorCount > 0) {
-   showToast(`Semua kode gagal diproses. ${summaryMessage}`, 'error');
- }
+  const totalCodes = codes.length;
+  const progressBar = document.getElementById('progress-bar');
+  const attemptCounter = document.getElementById('attempt-counter');
+  
+  // Set initial progress
+  progressBar.style.width = '0%';
+  attemptCounter.textContent = `Mempersiapkan ${totalCodes} kode...`;
+  
+  // Process each code sequentially
+  for (let i = 0; i < codes.length; i++) {
+    const code = codes[i].trim();
+    if (code) {
+      await claimCode(code, token, i, totalCodes);
+    }
+  }
+  
+  // Final progress update
+  progressBar.style.width = '100%';
+  attemptCounter.textContent = `Selesai memproses ${totalCodes} kode`;
+  
+  // Hide batch progress indicator
+  document.getElementById('batch-progress').classList.add('hidden');
+  
+  // Re-enable the start button
+  document.getElementById('start-button').disabled = false;
+  document.getElementById('start-button').textContent = 'Mulai Claim';
 }
 
 // Function to update the attempt display
 function updateAttemptDisplay(attemptNumber) {
- // Update the realtime attempt display
- const realtimeDiv = document.getElementById('realtime-attempt');
- if (realtimeDiv) {
-   realtimeDiv.innerHTML = `<strong>Mencoba: Percobaan ${attemptNumber}</strong>`;
- }
- 
- // Update the progress bar
- const progressBar = document.getElementById('progress-bar');
- const attemptCounter = document.getElementById('attempt-counter');
- 
- // Calculate progress based on max 10 attempts
- const progressPercent = Math.min(5 + ((attemptNumber / 10) * 85), 95);
- progressBar.style.width = `${progressPercent}%`;
- 
- // Update attempt counter text
- attemptCounter.textContent = `Sedang berjalan: Percobaan ke-${attemptNumber}/10`;
+  // Update the realtime attempt display
+  const realtimeDiv = document.getElementById('realtime-attempt');
+  if (realtimeDiv) {
+    realtimeDiv.innerHTML = `<strong>Mencoba: Percobaan ${attemptNumber}</strong>`;
+  }
+  
+  // Update the progress bar
+  const progressBar = document.getElementById('progress-bar');
+  const attemptCounter = document.getElementById('attempt-counter');
+  
+  // Calculate progress based on max 10 attempts
+  const progressPercent = Math.min(5 + ((attemptNumber / 10) * 85), 95);
+  progressBar.style.width = `${progressPercent}%`;
+  
+  // Update attempt counter text
+  attemptCounter.textContent = `Sedang berjalan: Percobaan ke-${attemptNumber}/10`;
 }
 
 // Variables to track link visibility state
 let isLinkVisible = false;
 
-// **OPTIMIZATION 29: Enhanced link masking with better performance**
+// Function to mask the sensitive part of Coca-Cola link
 function maskCokeLink(inputElement) {
- const value = inputElement.value;
- const displayElement = document.getElementById('masked-link-display');
- 
- if (isLinkVisible) {
-   displayElement.style.display = 'none';
-   inputElement.style.color = '';
-   return;
- }
- 
- if (value && value.includes('/s/')) {
-   const parts = value.split('/s/');
-   const domain = parts[0] + '/s/';
-   const id = parts[1];
-   
-   if (id) {
-     const maskedId = '•'.repeat(Math.min(id.length, 10));
-     displayElement.innerHTML = `${domain}<span class="font-bold text-black">${maskedId}</span>`;
-     displayElement.style.display = 'flex';
-     inputElement.style.color = 'transparent';
-     inputElement.style.caretColor = '#4b5563';
-   } else {
-     displayElement.innerHTML = domain;
-     displayElement.style.display = 'flex';
-     inputElement.style.color = 'transparent';
-     inputElement.style.caretColor = '#4b5563';
-   }
- } else {
-   displayElement.style.display = 'none';
-   inputElement.style.color = '';
- }
+  const value = inputElement.value;
+  const displayElement = document.getElementById('masked-link-display');
+  
+  // If link is set to visible, don't mask anything
+  if (isLinkVisible) {
+    displayElement.style.display = 'none';
+    inputElement.style.color = '';
+    return;
+  }
+  
+  // Check if the link follows the expected pattern
+  if (value && value.includes('/s/')) {
+    const parts = value.split('/s/');
+    const domain = parts[0] + '/s/';
+    const id = parts[1];
+    
+    // Create a masked version where we show only the domain part
+    // and replace the ID part with asterisks
+    if (id) {
+      // Show the real input as invisible but put a masked overlay
+      displayElement.innerHTML = `${domain}<span class="font-bold text-black">${'•'.repeat(Math.min(id.length, 10))}</span>`;
+      displayElement.style.display = 'flex';
+      
+      // Make sure we're not covering any text that's being typed
+      inputElement.style.color = 'transparent';
+      inputElement.style.caretColor = '#4b5563'; // Make the cursor visible
+    } else {
+      // If there's no ID part yet, just show the domain
+      displayElement.innerHTML = domain;
+      displayElement.style.display = 'flex';
+      inputElement.style.color = 'transparent';
+      inputElement.style.caretColor = '#4b5563';
+    }
+  } else {
+    // If it doesn't match our pattern, show the raw input
+    displayElement.style.display = 'none';
+    inputElement.style.color = '';
+  }
 }
 
 // Function to toggle link visibility
 function toggleLinkVisibility() {
- const linkInput = document.getElementById('coca-cola-link');
- const showIcon = document.getElementById('show-link-icon');
- const hideIcon = document.getElementById('hide-link-icon');
- const maskedDisplay = document.getElementById('masked-link-display');
- 
- isLinkVisible = !isLinkVisible;
- 
- if (isLinkVisible) {
-   linkInput.style.color = '';
-   maskedDisplay.style.display = 'none';
-   showIcon.classList.add('hidden');
-   hideIcon.classList.remove('hidden');
- } else {
-   showIcon.classList.remove('hidden');
-   hideIcon.classList.add('hidden');
-   maskCokeLink(linkInput);
- }
+  const linkInput = document.getElementById('coca-cola-link');
+  const showIcon = document.getElementById('show-link-icon');
+  const hideIcon = document.getElementById('hide-link-icon');
+  const maskedDisplay = document.getElementById('masked-link-display');
+  
+  isLinkVisible = !isLinkVisible;
+  
+  if (isLinkVisible) {
+    // Show the actual link text
+    linkInput.style.color = '';
+    maskedDisplay.style.display = 'none';
+    showIcon.classList.add('hidden');
+    hideIcon.classList.remove('hidden');
+  } else {
+    // Re-mask the link
+    showIcon.classList.remove('hidden');
+    hideIcon.classList.add('hidden');
+    maskCokeLink(linkInput);
+  }
 }
 
-// **OPTIMIZATION 30: Enhanced DOM initialization with better event handling**
+// Initialize UI when document is loaded
 document.addEventListener('DOMContentLoaded', function() {
- const startButton = document.getElementById('start-button');
- const linkInput = document.getElementById('coca-cola-link');
- const addCodeButton = document.getElementById('add-code-button');
- 
- // Ensure mobile right-click functionality
- if (typeof isMobileDevice !== 'undefined' && isMobileDevice) {
-   document.body.oncontextmenu = () => true;
- }
- 
- // **OPTIMIZATION 31: Debounced input handling**
- let maskingTimeout;
- linkInput.addEventListener('input', function() {
-   clearTimeout(maskingTimeout);
-   maskingTimeout = setTimeout(() => maskCokeLink(this), 100);
- });
- 
- // Add code button handler
- addCodeButton.addEventListener('click', function() {
-   const codeContainer = document.getElementById('packaging-codes-container');
-   const codeInputs = codeContainer.querySelectorAll('.packaging-code');
-   
-   if (codeInputs.length < 3) {
-     const codeInputWrapper = document.createElement('div');
-     codeInputWrapper.className = 'flex items-center';
-     
-     const codeInput = document.createElement('input');
-     codeInput.type = 'text';
-     codeInput.className = 'packaging-code w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500';
-     codeInput.placeholder = 'Masukkan kode tambahan';
-     
-     const badge = document.createElement('span');
-     badge.className = 'ml-2 code-badge badge-waiting';
-     badge.textContent = 'Menunggu';
-     
-     const removeButton = document.createElement('button');
-     removeButton.type = 'button';
-     removeButton.className = 'ml-2 text-red-500 hover:text-red-700 focus:outline-none';
-     removeButton.innerHTML = `
-       <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-         <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
-       </svg>
-     `;
-     
-     removeButton.addEventListener('click', function() {
-       codeInputWrapper.remove();
-       if (codeContainer.querySelectorAll('.packaging-code').length < 3) {
-         addCodeButton.style.display = '';
-       }
-     });
-     
-     codeInputWrapper.appendChild(codeInput);
-     codeInputWrapper.appendChild(badge);
-     codeInputWrapper.appendChild(removeButton);
-     
-     codeContainer.insertBefore(codeInputWrapper, addCodeButton.parentElement);
-     
-     if (codeContainer.querySelectorAll('.packaging-code').length >= 3) {
-       addCodeButton.style.display = 'none';
-     }
-   }
- });
- 
- // **OPTIMIZATION 32: Enhanced start button with better validation and user feedback**
- startButton.addEventListener('click', async function() {
-   try {
-     const cocaColaLink = document.getElementById('coca-cola-link').value.trim();
-     const codeInputs = document.querySelectorAll('.packaging-code');
-     
-     const packagingCodes = [];
-     for (const input of codeInputs) {
-       const code = input.value.trim();
-       if (code) {
-         // **OPTIMIZATION 33: Enhanced input validation**
-         if (code.length < 3 || code.length > 20) {
-           showToast(`Kode "${code}" tidak valid (panjang harus 3-20 karakter)`, 'error');
-           return;
-         }
-         packagingCodes.push(code);
-       }
-     }
-     
-     if (!cocaColaLink || packagingCodes.length === 0) {
-       showToast('Silakan isi link Coca-Cola dan minimal 1 Kode Kemasan', 'error');
-       return;
-     }
+  const startButton = document.getElementById('start-button');
+  const linkInput = document.getElementById('coca-cola-link');
+  const addCodeButton = document.getElementById('add-code-button');
+  
+  // Always ensure right-clicking is enabled on mobile
+  if (isMobileDevice) {
+    document.body.oncontextmenu = function() { return true; };
+  }
+  
+  // Click event for the add code button
+  addCodeButton.addEventListener('click', function() {
+    const codeContainer = document.getElementById('packaging-codes-container');
+    const codeInputs = codeContainer.querySelectorAll('.packaging-code');
+    
+    // Limit to maximum 3 codes
+    if (codeInputs.length < 3) {
+      // Create a new code input field with badge
+      const codeInputWrapper = document.createElement('div');
+      codeInputWrapper.className = 'flex items-center';
+      
+      const codeInput = document.createElement('input');
+      codeInput.type = 'text';
+      codeInput.className = 'packaging-code w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500';
+      codeInput.placeholder = 'Masukkan kode tambahan';
+      
+      const badge = document.createElement('span');
+      badge.className = 'ml-2 code-badge badge-waiting';
+      badge.textContent = 'Menunggu';
+      
+      // Remove button
+      const removeButton = document.createElement('button');
+      removeButton.type = 'button';
+      removeButton.className = 'ml-2 text-red-500 hover:text-red-700 focus:outline-none';
+      removeButton.innerHTML = `
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+        </svg>
+      `;
+      
+      removeButton.addEventListener('click', function() {
+        codeInputWrapper.remove();
+        // Show the add button again if we're under the limit
+        if (codeContainer.querySelectorAll('.packaging-code').length < 3) {
+          addCodeButton.style.display = '';
+        }
+      });
+      
+      // Add everything to the container
+      codeInputWrapper.appendChild(codeInput);
+      codeInputWrapper.appendChild(badge);
+      codeInputWrapper.appendChild(removeButton);
+      
+      // Insert before the "Add code" button container
+      codeContainer.insertBefore(codeInputWrapper, addCodeButton.parentElement);
+      
+      // Hide the add button if we've reached the limit
+      if (codeContainer.querySelectorAll('.packaging-code').length >= 3) {
+        addCodeButton.style.display = 'none';
+      }
+    }
+  });
+  
+  // Click event for the start button
+  startButton.addEventListener('click', async function() {
+    try {
+      const cocaColaLink = document.getElementById('coca-cola-link').value;
+      const codeInputs = document.querySelectorAll('.packaging-code');
+      
+      // Collect all codes
+      const packagingCodes = [];
+      for (const input of codeInputs) {
+        const code = input.value.trim();
+        if (code) {
+          packagingCodes.push(code);
+        }
+      }
+      
+      if (!cocaColaLink || packagingCodes.length === 0) {
+        showToast('Silakan isi link Coca-Cola dan minimal 1 Kode Kemasan', 'error');
+        return;
+      }
 
-     if (!cocaColaLink.includes('ayo.coca-cola.co.id')) {
-       showToast('Silakan masukkan link Coca-Cola yang valid', 'error');
-       return;
-     }
-     
-     // Check for duplicate codes
-     const uniqueCodes = [...new Set(packagingCodes)];
-     if (uniqueCodes.length !== packagingCodes.length) {
-       showToast('Ditemukan kode duplikat. Silakan hapus kode yang sama.', 'error');
-       return;
-     }
-     
-     // Clear previous results
-     document.getElementById('result-display').innerHTML = '<div class="text-gray-400 text-center">Memulai proses baru...</div>';
-     
-     // Update button state
-     this.disabled = true;
-     this.textContent = 'Memproses...';
-     
-     // Reset progress
-     document.getElementById('progress-bar').style.width = '0%';
-     document.getElementById('attempt-counter').textContent = 'Mengekstrak token dari userCoupons...';
-     
-     showToast('Mendapatkan token dari userCoupons request...', 'info');
-     const token = await extractToken(cocaColaLink);
-     
-     if (!token) {
-       throw new Error('Gagal mendapatkan token dari userCoupons request');
-     }
-     
-     showToast(`Token berhasil diekstrak! Memulai proses claim ${packagingCodes.length} kode...`, 'success');
-     await processMultipleCodes(packagingCodes, token);
-     
-   } catch (error) {
-     console.error('Process error:', error);
-     showToast(`Error: ${error.message}`, 'error');
-     
-     this.disabled = false;
-     this.textContent = 'Mulai Claim';
-   }
- });
- 
- // Initialize link masking
- if (linkInput.value) {
-   maskCokeLink(linkInput);
- }
- 
- // Set up visibility toggle
- const toggleButton = document.getElementById('toggle-link-visibility');
- if (toggleButton) {
-   toggleButton.addEventListener('click', toggleLinkVisibility);
- }
- 
- // **OPTIMIZATION 34: Add keyboard shortcuts**
- document.addEventListener('keydown', function(event) {
-   // Ctrl/Cmd + Enter to start claim
-   if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
-     if (!startButton.disabled) {
-       startButton.click();
-     }
-   }
-   
-   // Escape to cancel (if possible)
-   if (event.key === 'Escape') {
-     // Could add cancel functionality here
-     const tokenStatus = document.getElementById('token-status');
-     if (!tokenStatus.classList.contains('hidden')) {
-       showToast('Operasi dibatalkan oleh pengguna', 'info');
-     }
-   }
- });
-});
-
-// **OPTIMIZATION 35: Add performance monitoring**
-if (typeof performance !== 'undefined' && performance.mark) {
- document.addEventListener('DOMContentLoaded', () => {
-   performance.mark('app-initialized');
-   console.log('App initialized at:', performance.now(), 'ms');
- });
-}
-
-// **OPTIMIZATION 36: Add error boundary for unhandled errors**
-window.addEventListener('error', function(event) {
- console.error('Unhandled error:', event.error);
- showToast('Terjadi kesalahan tidak terduga. Silakan refresh halaman.', 'error');
-});
-
-window.addEventListener('unhandledrejection', function(event) {
- console.error('Unhandled promise rejection:', event.reason);
- showToast('Terjadi kesalahan koneksi. Silakan coba lagi.', 'error');
-});
-
-// **OPTIMIZATION 37: Add connection status monitoring**
-window.addEventListener('online', function() {
- showToast('Koneksi internet tersambung kembali', 'success');
-});
-
-window.addEventListener('offline', function() {
- showToast('Koneksi internet terputus', 'error');
-});
-
-// **OPTIMIZATION 38: Add visibility change handling for better performance**
-document.addEventListener('visibilitychange', function() {
- if (document.hidden) {
-   console.log('Page hidden - pausing non-critical operations');
- } else {
-   console.log('Page visible - resuming operations');
- }
-});
-
-// **OPTIMIZATION 39: Memory cleanup for large result displays**
-function cleanupOldResults() {
- const resultDisplay = document.getElementById('result-display');
- const entries = resultDisplay.children;
- 
- // Keep only the last 50 entries to prevent memory issues
- if (entries.length > 50) {
-   while (entries.length > 50) {
-     entries[entries.length - 1].remove();
-   }
-   console.log('Cleaned up old result entries');
- }
-}
-
-// **OPTIMIZATION 40: Throttled scroll handling for large result lists**
-let scrollTimeout;
-document.getElementById('result-display')?.addEventListener('scroll', function() {
- clearTimeout(scrollTimeout);
- scrollTimeout = setTimeout(() => {
-   cleanupOldResults();
- }, 1000);
+      // Validate that the link is a Coca-Cola link
+      if (!cocaColaLink.includes('ayo.coca-cola.co.id')) {
+        showToast('Silakan masukkan link Coca-Cola yang valid', 'error');
+        return;
+      }
+      
+      // Clear any previous results first when starting a new claim
+      document.getElementById('result-display').innerHTML = '<div class="text-gray-400 text-center">Memulai proses baru...</div>';
+      
+      // Update button state
+      this.disabled = true;
+      this.textContent = 'Memproses...';
+      
+      // Reset progress
+      document.getElementById('progress-bar').style.width = '0%';
+      document.getElementById('attempt-counter').textContent = 'Mengekstrak token...';
+      
+      // First extract the authorization token from the link
+      showToast('Mendapatkan token dari link...', 'info');
+      const token = await extractToken(cocaColaLink);
+      
+      if (!token) {
+        throw new Error('Gagal mendapatkan token dari link');
+      }
+      
+      // Then start the claim process with the extracted token
+      showToast(`Token berhasil diekstrak, memulai proses claim ${packagingCodes.length} kode...`, 'success');
+      await processMultipleCodes(packagingCodes, token);
+      
+    } catch (error) {
+      console.error('Process error:', error);
+      showToast(`Error: ${error.message}`, 'error');
+      
+      // Re-enable the start button
+      this.disabled = false;
+      this.textContent = 'Mulai Claim';
+    }
+  });
+  
+  // Initialize the masking for the Coca-Cola link input
+  if (linkInput.value) {
+    maskCokeLink(linkInput);
+  }
+  
+  // Set up the visibility toggle
+  const toggleButton = document.getElementById('toggle-link-visibility');
+  toggleButton.addEventListener('click', toggleLinkVisibility);
 });
