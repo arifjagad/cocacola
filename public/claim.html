@@ -165,7 +165,7 @@
             <!-- Form inputs -->
             <div class="space-y-4">
               <div>
-                <label for="coca-cola-link" class="block text-sm font-medium text-gray-700 mb-1">Link Coca-Cola</label>
+                <label for="coca-cola-link" class="block text-sm font-medium text-gray-700 mb-1">Link Coca-Cola #1 (Utama)</label>
                 <div class="relative">
                   <input type="text" id="coca-cola-link" placeholder="https://ayo.coca-cola.co.id/s/XXXXXXXXXX" 
                         class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500 pr-10"
@@ -184,7 +184,31 @@
                     </svg>
                   </button>
                 </div>
-                <p class="text-xs text-gray-500 mt-1">Tempel link Coca-Cola Anda di sini (klik ikon mata untuk menampilkan/menyembunyikan link lengkap)</p>
+                <p class="text-xs text-gray-500 mt-1">Tempel link Coca-Cola pertama di sini (wajib)</p>
+              </div>
+
+              <!-- Second Coca-Cola link input (optional) -->
+              <div>
+                <label for="coca-cola-link-2" class="block text-sm font-medium text-gray-700 mb-1">Link Coca-Cola #2 (Opsional - Untuk Double Claim)</label>
+                <div class="relative">
+                  <input type="text" id="coca-cola-link-2" placeholder="https://ayo.coca-cola.co.id/s/XXXXXXXXXX" 
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500 pr-10"
+                        oninput="maskCokeLink(this, 'masked-link-display-2')">
+                  <div id="masked-link-display-2" class="absolute inset-y-0 left-0 flex items-center px-3 pointer-events-none text-gray-500 overflow-hidden"></div>
+                  <button type="button" onclick="toggleLinkVisibility('coca-cola-link-2', 'masked-link-display-2', 'show-link-icon-2', 'hide-link-icon-2')" class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 focus:outline-none">
+                    <!-- Eye Icon (Show) -->
+                    <svg xmlns="http://www.w3.org/2000/svg" id="show-link-icon-2" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                      <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
+                      <path fill-rule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clip-rule="evenodd" />
+                    </svg>
+                    <!-- Eye Off Icon (Hide) -->
+                    <svg xmlns="http://www.w3.org/2000/svg" id="hide-link-icon-2" class="h-5 w-5 hidden" viewBox="0 0 20 20" fill="currentColor">
+                      <path fill-rule="evenodd" d="M3.707 2.293a1 1 0 00-1.414 1.414l14 14a1 1 0 001.414-1.414l-1.473-1.473A10.014 10.014 0 0019.542 10C18.268 5.943 14.478 3 10 3a9.958 9.958 0 00-4.512 1.074l-1.78-1.781zm4.261 4.26l1.514 1.515a2.003 2.003 0 012.45 2.45l1.514 1.514a4 4 0 00-5.478-5.478z" clip-rule="evenodd" />
+                      <path d="M12.454 16.697L9.75 13.992a4 4 0 01-3.742-3.741L2.335 6.578A9.98 9.98 0 00.458 10c1.274 4.057 5.065 7 9.542 7 .847 0 1.669-.105 2.454-.303z" />
+                    </svg>
+                  </button>
+                </div>
+                <p class="text-xs text-gray-500 mt-1">Tempel link Coca-Cola kedua di sini (opsional untuk double claim)</p>
               </div>
               
               <!-- Multi-code input section -->
@@ -212,7 +236,7 @@
               
               <!-- Start button -->
               <button id="start-button" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded transition-colors duration-300">
-                Mulai Claim
+                Mulai Race Condition
               </button>
             </div>
           </div>
@@ -274,6 +298,24 @@
           </div>
           
           <div class="p-6 space-y-6">
+            <!-- Race Condition Feature -->
+            <div class="bg-yellow-50 p-3 border border-yellow-200 rounded-md">
+              <h3 class="text-md font-semibold mb-2 flex items-center text-yellow-800">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+                Fitur Race Condition
+              </h3>
+              <p class="text-sm text-yellow-800">
+                Fitur ini akan mengirimkan <span class="font-bold">20 request secara bersamaan</span> untuk setiap link untuk memanfaatkan race condition pada server Coca-Cola.
+              </p>
+              <ul class="text-xs text-yellow-700 space-y-1 list-disc ml-5 mt-2">
+                <li>Kirim banyak request bersamaan untuk mendapatkan multiple voucher dengan kode yang sama</li>
+                <li>Jika berhasil, Anda akan mendapatkan lebih dari satu voucher dengan satu kode</li>
+                <li>Penggunaan 2 link sekaligus akan mengirimkan total 40 request paralel untuk setiap kode</li>
+              </ul>
+            </div>
+            
             <!-- Proses Claim -->
             <div>
               <h3 class="text-md font-semibold mb-2 flex items-center">
@@ -347,14 +389,14 @@
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 text-purple-500" viewBox="0 0 20 20" fill="currentColor">
                   <path fill-rule="evenodd" d="M18 13V5a2 2 0 00-2-2H4a2 2 0 00-2 2v8a2 2 0 002 2h3l3 3 3-3h3a2 2 0 002-2zM5 7a1 1 0 011-1h8a1 1 0 110 2H6a1 1 0 01-1-1zm1 3a1 1 0 100 2h3a1 1 0 100-2H6z" clip-rule="evenodd" />
                 </svg>
-                Tips Klaim
+                Tips Race Condition
               </h3>
               <ul class="text-sm text-gray-700 space-y-2 list-disc ml-5">
-                <li>Pastikan link Coca-Cola Anda baru dan aktif.</li>
-                <li>Masukkan hingga 3 kode sekaligus untuk menghemat waktu.</li>
-                <li>Proses claim bisa membutuhkan waktu yang bervariasi, terkadang berhasil setelah puluhan percobaan.</li>
-                <li>Kode yang berhasil akan menghasilkan voucher di akun Coca-Cola Anda.</li>
-                <li>Jika proses berjalan terlalu lama, Anda bisa refresh dan coba lagi.</li>
+                <li>Gunakan <span class="font-medium">dua link berbeda</span> untuk memaksimalkan peluang sukses.</li>
+                <li>Gunakan kode yang belum pernah dipakai untuk peluang sukses terbaik.</li>
+                <li>Saat berhasil, cek akun Coca-Cola Anda untuk melihat berapa banyak voucher yang didapat.</li>
+                <li>Anda mungkin saja mendapat 2-3 voucher dari satu kode yang sama.</li>
+                <li>Jika server sedang sibuk, tingkat keberhasilan mungkin lebih rendah.</li>
               </ul>
             </div>
           </div>
